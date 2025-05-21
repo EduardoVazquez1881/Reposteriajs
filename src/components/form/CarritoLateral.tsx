@@ -3,6 +3,8 @@
 import Image from 'next/image';
 import { ShoppingBag, X, Plus, Minus, CreditCard } from 'lucide-react';
 import { useCarrito } from '@/context/CarritoContext';
+import { useSession } from "next-auth/react";
+import { useRouter } from "next/navigation";
 
 interface CarritoLateralProps {
   isOpen: boolean;
@@ -11,9 +13,19 @@ interface CarritoLateralProps {
 
 export default function CarritoLateral({ isOpen, setIsOpen }: CarritoLateralProps) {
   const { carrito, eliminarDelCarrito, actualizarCantidad } = useCarrito();
+  const { data: session } = useSession();
+  const router = useRouter();
   
   // Si el panel no está abierto, no renderizar nada
   if (!isOpen) return null;
+  
+  const handleCarritoClick = () => {
+    if (!session) {
+      router.push('/auth/login');
+      return;
+    }
+    setIsOpen(true);
+  };
   
   const total = carrito.reduce((sum, item) => sum + (Number(item.precio) * (item.cantidad || 1)), 0);
   
@@ -125,7 +137,7 @@ export default function CarritoLateral({ isOpen, setIsOpen }: CarritoLateralProp
       {carrito.length > 0 && (
         <div className="p-4 border-t border-gray-200">
           <button 
-            onClick={() => setIsOpen(false)}
+            onClick={handleCarritoClick}
             className="w-full bg-gradient-to-r from-pink-600 to-purple-600 text-white py-3 rounded-full font-medium hover:shadow-lg transition-all flex items-center justify-center gap-2"
           >
             <CreditCard size={20} />

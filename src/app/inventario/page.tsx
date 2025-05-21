@@ -1,215 +1,518 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { getIngredientes, getRecetas, crearPastel, reabastecerIngrediente } from "@/libs/db/recetas";
+import React, { useState, useEffect, useMemo } from "react";
 import Sidebar from "@/components/form/sidebar";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Package, AlertTriangle, Plus, Search, Filter, Pencil, ChefHat, ShoppingCart, PlusCircle } from "lucide-react";
+import { ProductoDialog } from "@/components/form/ProductoDialog";
+import { useSearchParams } from "next/navigation";
+import IngredienteDialog from '@/components/IngredienteDialog';
+
+interface Producto {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  tipo: string;
+  precio: number;
+  stock: number;
+  unidad: string;
+  imagen?: string;
+  destacado: boolean;
+  disponible: boolean;
+}
 
 interface Ingrediente {
-  id: number;
+  id: string;
   nombre: string;
-  cantidad: number;
+  cantidadActual: number;
   unidad: string;
+  stockMinimo: number;
+  proveedor: string;
 }
 
-interface Receta {
-  id: number;
-  nombre: string;
-  descripcion: string | null;
-  ingredientes: {
-    cantidad: number;
-    ingrediente: Ingrediente;
-  }[];
+interface PedidoPersonalizado {
+  id: string;
+  clienteId: string;
+  descripcion: string;
+  fechaEntrega: Date;
+  estado: string;
+  precio: number;
+  productos: Producto[];
 }
 
-const App = () => {
+export default function InventarioPage() {
+  const searchParams = useSearchParams();
+  const [activeTab, setActiveTab] = useState(searchParams.get("tab") || "productos");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterType, setFilterType] = useState("todos");
+  const [productos, setProductos] = useState<Producto[]>([]);
   const [ingredientes, setIngredientes] = useState<Ingrediente[]>([]);
-  const [recetas, setRecetas] = useState<Receta[]>([]);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [ingredienteSeleccionado, setIngredienteSeleccionado] = useState<number | null>(null);
-  const [cantidadReabastecer, setCantidadReabastecer] = useState(1);
+  const [pedidos, setPedidos] = useState<PedidoPersonalizado[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedProducto, setSelectedProducto] = useState<Producto | null>(null);
+  const [selectedIngrediente, setSelectedIngrediente] = useState<Ingrediente | null>(null);
+  const [isIngredienteDialogOpen, setIsIngredienteDialogOpen] = useState(false);
 
   useEffect(() => {
     cargarDatos();
   }, []);
 
   const cargarDatos = async () => {
-    setIsLoading(true);
-    setError(null);
     try {
-      const [ingredientesData, recetasData] = await Promise.all([
-        getIngredientes(),
-        getRecetas()
+      setLoading(true);
+      // Aquí irían las llamadas a la API para cargar los datos
+      // Por ahora usaremos datos de ejemplo
+      setProductos([
+        {
+          id: "1",
+          nombre: "Pastel de Chocolate",
+          descripcion: "Delicioso pastel de chocolate con cobertura",
+          tipo: "pastel",
+          stock: 5,
+          unidad: "unidad",
+          precio: 450.00,
+          imagen: "/pastel-chocolate.jpg",
+          destacado: true,
+          disponible: true
+        },
+        {
+          id: "2",
+          nombre: "Harina",
+          descripcion: "Harina de trigo para repostería",
+          tipo: "materia_prima",
+          stock: 10,
+          unidad: "kg",
+          precio: 45.00,
+          imagen: "/harina.jpg",
+          destacado: false,
+          disponible: true
+        }
       ]);
-      setIngredientes(ingredientesData);
-      setRecetas(recetasData);
+
+      setIngredientes([
+        {
+          id: "1",
+          nombre: "Harina de trigo",
+          cantidadActual: 50,
+          unidad: "kg",
+          stockMinimo: 10,
+          proveedor: "Distribuidora de Harinas S.A."
+        },
+        {
+          id: "2",
+          nombre: "Azúcar refinada",
+          cantidadActual: 30,
+          unidad: "kg",
+          stockMinimo: 5,
+          proveedor: "Azúcar del Norte"
+        },
+        {
+          id: "3",
+          nombre: "Huevos",
+          cantidadActual: 200,
+          unidad: "unidad",
+          stockMinimo: 50,
+          proveedor: "Granja Los Pinos"
+        },
+        {
+          id: "4",
+          nombre: "Mantequilla",
+          cantidadActual: 20,
+          unidad: "kg",
+          stockMinimo: 5,
+          proveedor: "Lácteos del Valle"
+        },
+        {
+          id: "5",
+          nombre: "Chocolate para repostería",
+          cantidadActual: 15,
+          unidad: "kg",
+          stockMinimo: 3,
+          proveedor: "Chocolates Selectos"
+        }
+      ]);
+
+      setPedidos([
+        {
+          id: "1",
+          clienteId: "cliente1",
+          descripcion: "Pastel de cumpleaños con temática de superhéroes",
+          fechaEntrega: new Date("2024-03-20"),
+          estado: "pendiente",
+          precio: 1200.00,
+          productos: [
+            {
+              id: "1",
+              nombre: "Pastel de Chocolate",
+              descripcion: "Delicioso pastel de chocolate con cobertura",
+              tipo: "pastel",
+              stock: 1,
+              unidad: "unidad",
+              precio: 450.00,
+              destacado: true,
+              disponible: true
+            }
+          ]
+        }
+      ]);
+
+      setLoading(false);
     } catch (error) {
-      console.error('Error al cargar datos:', error);
-      setError('Error al cargar los datos. Por favor, intente nuevamente.');
-    } finally {
-      setIsLoading(false);
+      setError("Error al cargar los datos");
+      setLoading(false);
     }
   };
 
-  const handleCrearPastel = async (recetaId: number) => {
-    setError(null);
+  const handleCreateProducto = async (data: Producto) => {
     try {
-      await crearPastel(recetaId);
-      await cargarDatos();
-      alert("✅ Pastel creado con éxito.");
+      // Aquí iría la llamada a la API para crear el producto
+      console.log("Crear producto:", data);
+      // Por ahora solo actualizamos el estado local
+      setProductos([...productos, data]);
+      setDialogOpen(false);
     } catch (error) {
-      console.error('Error al crear pastel:', error);
-      setError(error instanceof Error ? error.message : 'Error al crear el pastel');
+      setError("Error al crear el producto");
     }
   };
 
-  const handleReabastecer = async () => {
-    if (!ingredienteSeleccionado) {
-      setError('Por favor, seleccione un ingrediente');
-      return;
-    }
-
-    if (cantidadReabastecer <= 0) {
-      setError('La cantidad debe ser mayor a 0');
-      return;
-    }
-
-    setError(null);
+  const handleEditProducto = async (data: Producto) => {
     try {
-      await reabastecerIngrediente(ingredienteSeleccionado, cantidadReabastecer);
-      await cargarDatos();
-      setModalOpen(false);
-      alert("✅ Ingrediente reabastecido.");
+      // Aquí iría la llamada a la API para actualizar el producto
+      console.log("Editar producto:", data);
+      // Por ahora solo actualizamos el estado local
+      setProductos(productos.map(p => p.id === data.id ? data : p));
+      setDialogOpen(false);
+      setSelectedProducto(null);
     } catch (error) {
-      console.error('Error al reabastecer:', error);
-      setError(error instanceof Error ? error.message : 'Error al reabastecer');
+      setError("Error al actualizar el producto");
     }
   };
+
+  const handleOpenDialog = (producto: Producto | null = null) => {
+    setSelectedProducto(producto);
+    setDialogOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setSelectedProducto(null);
+    setDialogOpen(false);
+  };
+
+  const handleSaveProducto = (producto: Producto) => {
+    if (selectedProducto) {
+      // Editar producto existente
+      setProductos(productos.map(p => p.id === producto.id ? producto : p));
+    } else {
+      // Crear nuevo producto
+      handleCreateProducto(producto);
+    }
+    handleCloseDialog();
+  };
+
+  const handleDeleteProducto = (id: string) => {
+    setProductos(productos.filter(p => p.id !== id));
+    handleCloseDialog();
+  };
+
+  const handleEditIngrediente = (ingrediente: Ingrediente) => {
+    setSelectedIngrediente(ingrediente);
+    setIsIngredienteDialogOpen(true);
+  };
+
+  const handleCloseIngredienteDialog = () => {
+    setSelectedIngrediente(null);
+    setIsIngredienteDialogOpen(false);
+  };
+
+  const handleSaveIngrediente = (ingrediente: Ingrediente) => {
+    // Lógica para guardar el ingrediente (reemplazar con llamada a API)
+    setIngredientes(ingredientes.map(i => i.id === ingrediente.id ? ingrediente : i));
+    handleCloseIngredienteDialog();
+  };
+
+  const filteredProductos = productos.filter(producto => {
+    const matchesSearch = producto.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         producto.descripcion.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = filterType === "todos" || producto.tipo === filterType;
+    return matchesSearch && matchesType;
+  });
+
+  const filteredIngredientes = ingredientes.filter(ingrediente => 
+    ingrediente.nombre.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const filteredPedidos = pedidos.filter(pedido => 
+    pedido.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <div className="flex min-h-screen bg-rose-50">
+    <div className="flex">
       <Sidebar />
       <div className="flex-1 p-8">
-        <h1 className="text-3xl font-bold text-center text-rose-700 mb-8">
-          🍰 Sistema de Inventario de Pastelería
-        </h1>
+        <h1 className="text-3xl font-bold text-rose-900 mb-6">Sistema de Inventario</h1>
+        
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="productos">
+              <Package className="w-4 h-4 mr-2" />
+              Productos
+            </TabsTrigger>
+            <TabsTrigger value="ingredientes">
+              <ChefHat className="w-4 h-4 mr-2" />
+              Ingredientes
+            </TabsTrigger>
+            <TabsTrigger value="pedidos">
+              <ShoppingCart className="w-4 h-4 mr-2" />
+              Pedidos Personalizados
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="productos" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div className="flex gap-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                  <Input
+                    placeholder="Buscar productos..."
+                    className="pl-10"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <Select value={filterType} onValueChange={setFilterType}>
+                  <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filtrar por tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos</SelectItem>
+                    <SelectItem value="pastel">Pasteles</SelectItem>
+                    <SelectItem value="materia_prima">Materias Primas</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <Button onClick={() => handleOpenDialog()}>
+                <Plus className="w-4 h-4 mr-2" />
+                Nuevo Producto
+              </Button>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Lista de Productos</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nombre</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      <TableHead>Stock</TableHead>
+                      <TableHead>Unidad</TableHead>
+                      <TableHead>Precio</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredProductos.map((producto) => (
+                      <TableRow key={producto.id}>
+                        <TableCell>{producto.nombre}</TableCell>
+                        <TableCell>{producto.tipo === "pastel" ? "Pastel" : "Materia Prima"}</TableCell>
+                        <TableCell>{producto.stock}</TableCell>
+                        <TableCell>{producto.unidad}</TableCell>
+                        <TableCell>${producto.precio}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            producto.disponible 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {producto.disponible ? 'Disponible' : 'No disponible'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleOpenDialog(producto)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="ingredientes" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <Input
+                  placeholder="Buscar ingredientes..."
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Nuevo Ingrediente
+              </Button>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Lista de Ingredientes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nombre</TableHead>
+                      <TableHead>Cantidad</TableHead>
+                      <TableHead>Unidad</TableHead>
+                      <TableHead>Stock Mínimo</TableHead>
+                      <TableHead>Proveedor</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Acciones</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredIngredientes.map((ingrediente) => (
+                      <TableRow key={ingrediente.id}>
+                        <TableCell>{ingrediente.nombre}</TableCell>
+                        <TableCell>{ingrediente.cantidadActual}</TableCell>
+                        <TableCell>{ingrediente.unidad}</TableCell>
+                        <TableCell>{ingrediente.stockMinimo}</TableCell>
+                        <TableCell>{ingrediente.proveedor}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            ingrediente.cantidadActual >= ingrediente.stockMinimo
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {ingrediente.cantidadActual >= ingrediente.stockMinimo ? 'Suficiente' : 'Bajo Stock'}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleEditIngrediente(ingrediente)}
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="pedidos" className="space-y-4">
+            <div className="flex justify-between items-center">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <Input
+                  placeholder="Buscar pedidos..."
+                  className="pl-10"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Nuevo Pedido
+              </Button>
+            </div>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Lista de Pedidos Personalizados</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Descripción</TableHead>
+                      <TableHead>Fecha Entrega</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead>Precio</TableHead>
+                      <TableHead>Productos</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredPedidos.map((pedido) => (
+                      <TableRow key={pedido.id}>
+                        <TableCell>{pedido.descripcion}</TableCell>
+                        <TableCell>{pedido.fechaEntrega.toLocaleDateString()}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs ${
+                            pedido.estado === 'pendiente' 
+                              ? 'bg-yellow-100 text-yellow-800'
+                              : pedido.estado === 'en_proceso'
+                              ? 'bg-blue-100 text-blue-800'
+                              : pedido.estado === 'completado'
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                          }`}>
+                            {pedido.estado.charAt(0).toUpperCase() + pedido.estado.slice(1)}
+                          </span>
+                        </TableCell>
+                        <TableCell>${pedido.precio}</TableCell>
+                        <TableCell>
+                          <ul className="list-disc list-inside">
+                            {pedido.productos.map(producto => (
+                              <li key={producto.id}>{producto.nombre}</li>
+                            ))}
+                          </ul>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
-            <span className="block sm:inline">{error}</span>
-          </div>
+          <Alert variant="destructive" className="mt-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         )}
 
-        {isLoading ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-rose-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Cargando datos...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-            {/* Ingredientes */}
-            <table className="w-full bg-white rounded-xl shadow-md overflow-hidden">
-              <thead className="bg-rose-200 text-rose-900">
-                <tr>
-                  <th className="p-3 text-left">Ingrediente</th>
-                  <th className="p-3 text-left">Cantidad</th>
-                  <th className="p-3 text-left">Unidad</th>
-                </tr>
-              </thead>
-              <tbody>
-                {ingredientes.map((ingr) => (
-                  <tr key={ingr.id} className="border-t">
-                    <td className="p-3">{ingr.nombre}</td>
-                    <td className="p-3">{ingr.cantidad}</td>
-                    <td className="p-3">{ingr.unidad}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <ProductoDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          producto={selectedProducto}
+          onSubmit={handleSaveProducto}
+        />
 
-            {/* Recetas */}
-            <table className="w-full bg-white rounded-xl shadow-md overflow-hidden">
-              <thead className="bg-rose-200 text-rose-900">
-                <tr>
-                  <th className="p-3 text-left">Receta</th>
-                  <th className="p-3 text-left">Acción</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recetas.map((receta) => (
-                  <tr key={receta.id} className="border-t">
-                    <td className="p-3">{receta.nombre}</td>
-                    <td className="p-3">
-                      <button
-                        onClick={() => handleCrearPastel(receta.id)}
-                        className="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2 rounded-lg shadow-md"
-                      >
-                        🎂 Crear
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <div className="text-center mb-6">
-          <button
-            onClick={() => setModalOpen(true)}
-            className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg shadow-md"
-          >
-            🔄 Reabastecer Ingredientes
-          </button>
-        </div>
-
-        {/* Modal */}
-        {modalOpen && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-xl shadow-xl w-full max-w-md">
-              <h3 className="text-lg font-semibold mb-4">Reabastecer Ingrediente</h3>
-              <label className="block mb-2">Ingrediente:</label>
-              <select
-                className="w-full p-2 border rounded mb-4"
-                value={ingredienteSeleccionado || ''}
-                onChange={(e) => setIngredienteSeleccionado(Number(e.target.value) || null)}
-              >
-                <option value="">Seleccione un ingrediente</option>
-                {ingredientes.map((ingr) => (
-                  <option key={ingr.id} value={ingr.id}>
-                    {ingr.nombre}
-                  </option>
-                ))}
-              </select>
-              <label className="block mb-2">Cantidad:</label>
-              <input
-                type="number"
-                min="1"
-                className="w-full p-2 border rounded mb-4"
-                value={cantidadReabastecer}
-                onChange={(e) => setCantidadReabastecer(Number(e.target.value))}
-              />
-              <div className="flex justify-between">
-                <button
-                  onClick={handleReabastecer}
-                  className="bg-green-600 text-white px-4 py-2 rounded"
-                >
-                  Reabastecer
-                </button>
-                <button
-                  onClick={() => setModalOpen(false)}
-                  className="bg-red-500 text-white px-4 py-2 rounded"
-                >
-                  Cancelar
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        <IngredienteDialog
+          isOpen={isIngredienteDialogOpen}
+          onClose={handleCloseIngredienteDialog}
+          onSave={handleSaveIngrediente}
+          ingrediente={selectedIngrediente}
+        />
       </div>
     </div>
   );
-};
-
-export default App; 
+} 

@@ -43,11 +43,11 @@ export default function ForgotPasswordPage() {
           onSubmit={onSubmit}
           className="bg-white p-8 rounded-lg shadow-md w-96 mx-auto"
         >
-          <h2 className="text-2xl font-bold mb-6 text-center text-rose-600">Recuperar contraseña</h2>
+          <h2 className="text-2xl font-bold mb-6 text-center text-rose-600">Recuperar Contraseña</h2>
 
           {message && <p className="text-center mb-4 text-sm text-gray-700">{message}</p>}
 
-          <Label htmlFor="email">Correo electrónico</Label>
+          <Label htmlFor="email">Correo Electrónico</Label>
           <Input
             id="email"
             type="email"
@@ -59,8 +59,14 @@ export default function ForgotPasswordPage() {
           )}
 
           <Button type="submit" className="mt-4 w-full">
-            Enviar correo de recuperación
+            Enviar Correo de Recuperación
           </Button>
+
+          <div className="mt-4 text-center">
+            <a href="/auth/login" className="text-rose-600 hover:text-rose-700 text-sm">
+              Volver a Iniciar Sesión
+            </a>
+          </div>
         </form>
       </div>
     </div>

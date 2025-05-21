@@ -60,3 +60,110 @@ model PedidoItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+// Modelo para productos (pasteles y materias primas)
+model Producto {
+  id          String   @id @default(uuid())
+  nombre      String
+  descripcion String?
+  tipo        String   // "pastel" o "materia_prima"
+  precio      Decimal  @db.Decimal(10, 2)
+  stock       Int      @default(0)
+  unidad      String   // "kg", "ml", "unidad"
+  imagen      String?
+  destacado   Boolean  @default(false)
+  disponible  Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  ingredientes Ingrediente[]
+  pedidos      PedidoProducto[]
+  recetas      RecetaProducto[]
+}
+
+// Modelo para ingredientes (materias primas)
+model Ingrediente {
+  id          String   @id @default(uuid())
+  nombre      String
+  cantidad    Decimal  @db.Decimal(10, 2)
+  unidad      String   // "kg", "ml", "unidad"
+  stockMinimo Decimal  @db.Decimal(10, 2)
+  stockMaximo Decimal  @db.Decimal(10, 2)
+  proveedor   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  productos   Producto[]
+  recetas     RecetaIngrediente[]
+}
+
+// Modelo para recetas
+model Receta {
+  id          String   @id @default(uuid())
+  nombre      String
+  descripcion String?
+  instrucciones String @db.Text
+  tiempoPreparacion Int // en minutos
+  dificultad  String   // "facil", "medio", "dificil"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  productos   RecetaProducto[]
+  ingredientes RecetaIngrediente[]
+}
+
+// Modelo para pedidos personalizados
+model PedidoPersonalizado {
+  id          String   @id @default(uuid())
+  clienteId   String
+  descripcion String
+  fechaEntrega DateTime
+  estado      String   // "pendiente", "en_proceso", "completado", "cancelado"
+  precio      Decimal  @db.Decimal(10, 2)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relaciones
+  productos   PedidoProducto[]
+  cliente     User     @relation(fields: [clienteId], references: [id])
+}
+
+// Tablas de relación
+model RecetaProducto {
+  id          String   @id @default(uuid())
+  recetaId    String
+  productoId  String
+  cantidad    Decimal  @db.Decimal(10, 2)
+  unidad      String
+
+  // Relaciones
+  receta      Receta   @relation(fields: [recetaId], references: [id])
+  producto    Producto @relation(fields: [productoId], references: [id])
+}
+
+model RecetaIngrediente {
+  id          String   @id @default(uuid())
+  recetaId    String
+  ingredienteId String
+  cantidad    Decimal  @db.Decimal(10, 2)
+  unidad      String
+
+  // Relaciones
+  receta      Receta     @relation(fields: [recetaId], references: [id])
+  ingrediente Ingrediente @relation(fields: [ingredienteId], references: [id])
+}
+
+model PedidoProducto {
+  id          String   @id @default(uuid())
+  pedidoId    String
+  productoId  String
+  cantidad    Int
+  precio      Decimal  @db.Decimal(10, 2)
+
+  // Relaciones
+  pedido      PedidoPersonalizado @relation(fields: [pedidoId], references: [id])
+  producto    Producto            @relation(fields: [productoId], references: [id])
+}

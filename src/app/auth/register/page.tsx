@@ -16,7 +16,7 @@ export default function RegisterPage() {
     const onSubmit = handleSubmit(async (data) => {
         
         if (data.password !== data.confirmPassword) {
-            return alert('Passwords do not match');
+            return alert('Las contraseñas no coinciden');
         }
 
         const res = await fetch('/api/auth/register', {
@@ -33,7 +33,7 @@ export default function RegisterPage() {
 
         if (!res.ok) {
             const error = await res.json();
-            return alert(error.message || 'Something went wrong');
+            return alert(error.message || 'Algo salió mal');
         }
 
         if (res.ok)
@@ -51,18 +51,18 @@ export default function RegisterPage() {
             <div className="flex-1 flex items-center justify-center">
                 <form onSubmit={onSubmit} className='w-96 p-8 rounded-lg text-white flex flex-col border border-white/90 shadow-md bg-white backdrop-blur-xs hover:border-rose-500 hover:scale-105 transition-all'>
                 <div className="flex justify-center space-x-4 mb-8">
-                    <a href="/auth/register" className="p-4 text-xl font-bold text-rose-700  text-center border-b-2 border-rose-500">Register</a>
-                    <a href="/auth/login" className="p-4 text-xl font-bold text-center  text-rose-400 hover:text-rose-700 hover:border-b-2 hover:border-rose-500 transition-all">Login</a>
+                    <a href="/auth/register" className="p-4 text-xl font-bold text-rose-700  text-center border-b-2 border-rose-500">Registrar</a>
+                    <a href="/auth/login" className="p-4 text-xl font-bold text-center  text-rose-400 hover:text-rose-700 hover:border-b-2 hover:border-rose-500 transition-all">Iniciar Sesión</a>
                 </div>
                 
-                    <Label htmlFor='username'>Username</Label>
+                    <Label htmlFor='username'>Nombre de Usuario</Label>
                     <Input
                         type="text"
-                        placeholder="Username"
+                        placeholder="Nombre de usuario"
                         {...register("username", {
                             required: {
                                 value: true,
-                                message: 'Username is required'
+                                message: 'El nombre de usuario es requerido'
                             }
                         })}
                     />
@@ -72,14 +72,14 @@ export default function RegisterPage() {
                         </span>
                     )}
 
-                    <Label htmlFor='email'>Email</Label>
+                    <Label htmlFor='email'>Correo Electrónico</Label>
                     <Input
                         type="email"
-                        placeholder="user@gmail.com"
+                        placeholder="usuario@gmail.com"
                         {...register("email", {
                             required: {
                                 value: true,
-                                message: 'Email is required'
+                                message: 'El correo es requerido'
                             }
                         })}
                     />
@@ -89,14 +89,14 @@ export default function RegisterPage() {
                         </span>
                     )}
 
-                    <Label htmlFor='password'>Password</Label>
+                    <Label htmlFor='password'>Contraseña</Label>
                     <Input
                         type="password"
                         placeholder="********"
                         {...register("password", {
                             required: {
                                 value: true,
-                                message: 'Password is required'
+                                message: 'La contraseña es requerida'
                             }
                         })}
                     />
@@ -106,14 +106,14 @@ export default function RegisterPage() {
                         </span>
                     )}
 
-                    <Label htmlFor='confirmPassword'>Confirm Password</Label>
+                    <Label htmlFor='confirmPassword'>Confirmar Contraseña</Label>
                     <Input
                         type="password"
                         placeholder="********"
                         {...register("confirmPassword", {
                             required: {
                                 value: true,
-                                message: 'Confirm Password is required'
+                                message: 'La confirmación de contraseña es requerida'
                             }
                         })}
                     />
@@ -124,7 +124,7 @@ export default function RegisterPage() {
                     )}
 
                     <Button type="submit">
-                        Register
+                        Registrar
                     </Button>
                 </form>
                 <Image  src="/login.svg"   
