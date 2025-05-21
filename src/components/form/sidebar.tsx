@@ -132,7 +132,7 @@ function Sidebar({ children }: SidebarProps) {
       >
         <div className="p-4 border-b border-[#fcc5df] flex items-center justify-between rounded-xl drop-shadow-sm">
           <Image  
-            src="/img/logo.png"  
+            src="/images/pensando.jpg"  
             alt="Dulces Delicias Logo"  
             width={80}
             height={80}
@@ -177,14 +177,16 @@ function Sidebar({ children }: SidebarProps) {
                       ${item.spacing || ''}
                     `}
                   >
-                    <div className="relative">
-                      <item.icon size={24} className="text-rose-700" />
-                      {item.badge && item.badge > 0 && (
-                        <span className="absolute -top-2 -right-2 bg-pink-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                          {item.badge}
-                        </span>
-                      )}
-                    </div>
+                   <div className="relative">
+  {item.icon && (
+    <item.icon size={24} className="text-rose-700" />
+  )}
+  {item.badge && item.badge > 0 && (
+    <span className="absolute -top-2 -right-2 bg-pink-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+      {item.badge}
+    </span>
+  )}
+</div>
                     {!isCollapsed && (
                       <span className="text-gray-900">{item.text}</span>
                     )}
@@ -206,7 +208,7 @@ function Sidebar({ children }: SidebarProps) {
                 <div className="bg-rose-100 p-2 rounded-full">
                   {session.user.image ? (
                     <Image
-                      src={session.user.image}
+                      src="/images/pensando.jpg"  
                       alt="User profile"
                       width={24}
                       height={24}
@@ -364,7 +366,7 @@ function Sidebar({ children }: SidebarProps) {
                     </div>
                     <div className="flex justify-between text-lg font-bold text-rose-900 pt-2 border-t border-rose-200">
                       <span>Total:</span>
-                      <span>${total + 50}</span>
+                        <span>${(total || 0) + 50}</span>
                     </div>
                   </div>
                 </>

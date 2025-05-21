@@ -11,6 +11,7 @@ interface CarritoContextType {
   eliminarDelCarrito: (id: number) => void;
   actualizarCantidad: (id: number, cantidad: number) => void;
   limpiarCarrito: () => void;
+  total? : number
 }
 
 const CarritoContext = createContext<CarritoContextType | undefined>(undefined);
@@ -18,19 +19,19 @@ const CarritoContext = createContext<CarritoContextType | undefined>(undefined);
 export function CarritoProvider({ children }: { children: ReactNode }) {
   const [carrito, setCarrito] = useState<PastelConCantidad[]>([]);
 
-  const agregarAlCarrito = (pastel: Pastel) => {
-    setCarrito((prevCarrito) => {
-      const pastelExistente = prevCarrito.find((item) => item.id === pastel.id);
-      if (pastelExistente) {
-        return prevCarrito.map((item) =>
-          item.id === pastel.id
-            ? { ...item, cantidad: (item.cantidad || 1) + 1 }
-            : item
-        );
-      }
-      return [...prevCarrito, { ...pastel, cantidad: 1 }];
-    });
-  };
+const agregarAlCarrito = (pastel: Pastel) => {
+  setCarrito((prevCarrito) => {
+    const pastelExistente = prevCarrito.find((item) => item.id === pastel.id);
+    if (pastelExistente) {
+      return prevCarrito.map((item) =>
+        item.id === pastel.id
+          ? { ...item, cantidad: (item.cantidad || 1) + 1 }
+          : item
+      );
+    }
+    return [...prevCarrito, { ...pastel, cantidad: 1 }];
+  });
+};
 
   const eliminarDelCarrito = (id: number) => {
     setCarrito((prevCarrito) => prevCarrito.filter((item) => item.id !== id));

@@ -16,7 +16,7 @@ const pastelesMock = [
     nombre: 'Pastel de Chocolate',
     descripcion: 'El sabor profundo y la textura suave del chocolate se combinan para crear un pastel irresistible, perfecto para cualquier ocasión.',
     precio: 300,
-    imagen: 'https://peopleenespanol.com/thmb/lE1vH7iehjpUvyp14HNDYUXVi8o=/750x0/filters:no_upscale():max_bytes(150000):strip_icc()/3a23ae4b-48b7-44eb-96a7-0e8e755683b6-2000-c618f18c242d47ca89eaddea62579593.jpg',
+    imagen: '/images/chocolate.jpg',  // Cambiado a ruta local
     destacado: true,
     etiquetas: ['Chocolate', 'Favoritos'],
     calificacion: 4.8
@@ -26,7 +26,7 @@ const pastelesMock = [
     nombre: 'Tarta de Fresas',
     descripcion: 'Fresas frescas sobre una base de crema pastelera y masa quebrada. Una explosión de sabor frutal.',
     precio: 280,
-    imagen: 'https://peopleenespanol.com/thmb/DhWNNRlHKbpMpe57TLKKFxcxVwg=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/07520ea1-c0f0-4448-9a82-bb29c3d4aa52-2000-eb8a0e997bff4e1796bc9784c10117aa.jpg',
+    imagen: '/images/fresas.jpeg',  // Cambiado a ruta local
     destacado: false,
     etiquetas: ['Frutales', 'Verano'],
     calificacion: 4.5
@@ -36,7 +36,7 @@ const pastelesMock = [
     nombre: 'Cheesecake de Frutos Rojos',
     descripcion: 'La cremosidad del cheesecake se combina con la frescura de los frutos rojos para crear un postre irresistible.',
     precio: 320,
-    imagen: 'https://peopleenespanol.com/thmb/lE1vH7iehjpUvyp14HNDYUXVi8o=/750x0/filters:no_upscale():max_bytes(150000):strip_icc()/3a23ae4b-48b7-44eb-96a7-0e8e755683b6-2000-c618f18c242d47ca89eaddea62579593.jpg',
+    imagen: '/images/frutas.jpg',  // Cambiado a ruta local
     destacado: true,
     etiquetas: ['Frutales', 'Favoritos'],
     calificacion: 4.9
@@ -46,7 +46,7 @@ const pastelesMock = [
     nombre: 'Pastel de Zanahoria',
     descripcion: 'Un clásico reinventado con zanahorias frescas y un delicioso frosting de queso crema.',
     precio: 290,
-    imagen: 'https://peopleenespanol.com/thmb/DhWNNRlHKbpMpe57TLKKFxcxVwg=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/07520ea1-c0f0-4448-9a82-bb29c3d4aa52-2000-eb8a0e997bff4e1796bc9784c10117aa.jpg',
+    imagen: '/images/zanahoria.jpg',  // Cambiado a ruta local
     destacado: false,
     etiquetas: ['Tradicionales', 'Vegetariano'],
     calificacion: 4.7
@@ -56,7 +56,7 @@ const pastelesMock = [
     nombre: 'Tiramisú',
     descripcion: 'El postre italiano por excelencia, con capas de bizcocho empapado en café y crema de mascarpone.',
     precio: 350,
-    imagen: 'https://peopleenespanol.com/thmb/lE1vH7iehjpUvyp14HNDYUXVi8o=/750x0/filters:no_upscale():max_bytes(150000):strip_icc()/3a23ae4b-48b7-44eb-96a7-0e8e755683b6-2000-c618f18c242d47ca89eaddea62579593.jpg',
+    imagen: '/images/tiramisu.jpg',  // Cambiado a ruta local
     destacado: true,
     etiquetas: ['Especiales', 'Favoritos'],
     calificacion: 4.9
@@ -66,7 +66,7 @@ const pastelesMock = [
     nombre: 'Pastel de Limón',
     descripcion: 'Un refrescante pastel de limón con un toque de menta y una base crujiente de galletas.',
     precio: 270,
-    imagen: 'https://peopleenespanol.com/thmb/DhWNNRlHKbpMpe57TLKKFxcxVwg=/1500x0/filters:no_upscale():max_bytes(150000):strip_icc()/07520ea1-c0f0-4448-9a82-bb29c3d4aa52-2000-eb8a0e997bff4e1796bc9784c10117aa.jpg',
+    imagen: '/images/limon.jpg',  // Cambiado a ruta local
     destacado: false,
     etiquetas: ['Frutales', 'Verano'],
     calificacion: 4.6
@@ -132,10 +132,10 @@ export default function DulcesDelicias() {
   }, [categoriaActiva, busqueda, ordenPrecio]);
 
   // Función para agregar al carrito
-  const handleAgregarAlCarrito = useCallback((pastel: Pastel) => {
-    agregarAlCarrito(pastel);
-    setCarritoAbierto(true);
-  }, [agregarAlCarrito]);
+ const handleAgregarAlCarrito = useCallback((pastel: Pastel) => {
+  agregarAlCarrito(pastel);
+  setCarritoAbierto(true);
+}, [agregarAlCarrito]);
 
   // Función para alternar el estado de favorito
   const toggleFavorito = (pastel: Pastel) => {
@@ -365,7 +365,7 @@ export default function DulcesDelicias() {
                     : 'bg-white shadow-md hover:shadow-lg'
                 }`}
               >
-                {categoria}
+                {categoria}   
               </button>
             ))}
           </div>
