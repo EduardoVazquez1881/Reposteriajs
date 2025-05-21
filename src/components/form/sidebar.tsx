@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
-import { Menu, X, Home, ShoppingCart, Phone, CircleUserRound, PackageSearch, UserPen, HelpCircle, AlignJustify, User, LogOut, Settings, ChevronUp, ClipboardList, BarChart3, Package, FileEdit, Gift, Star, Plus, Minus } from 'lucide-react';
+import { X, Home, ShoppingCart, Phone, CircleUserRound, PackageSearch, UserPen, HelpCircle, AlignJustify, User, LogOut, Settings, ChevronUp, ClipboardList, BarChart3, Package, FileEdit, Gift, Star, Plus, Minus } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { DefaultSession } from 'next-auth';
 import Image from 'next/image';
@@ -11,13 +11,13 @@ import { useCarrito } from '@/context/CarritoContext';
 interface SidebarProps {
   children?: React.ReactNode;
 }
-// Extend the DefaultSession type to include the `id` property
+
 declare module 'next-auth' {
   interface Session {
     user?: {
       id?: string;
-      role?: string; // Campo role para identificar administradores en inglés
-      rol?: string;  // Campo rol para identificar administradores en español
+      role?: string;
+      rol?: string;
     } & DefaultSession['user'];
   }
 }
@@ -31,16 +31,10 @@ function Sidebar({ children }: SidebarProps) {
   const { carrito, eliminarDelCarrito, actualizarCantidad, total } = useCarrito();
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // Aquí comprobamos si el usuario es admin usando la sesión
+  // Validar si es admin con la sesión
   const isAdmin = session?.user?.rol === 'admin' || session?.user?.role === 'admin';
 
   const router = useRouter();
-
-  // Debug para mostrar información sobre la estructura de la sesión
-  console.log("Estado de sesión:", status);
-  console.log("Valor de rol:", session?.user?.rol);
-  console.log("Valor de role:", session?.user?.role);
-  console.log("¿Es administrador?:", isAdmin);
 
   type MenuItem = {
     icon?: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
@@ -87,22 +81,14 @@ function Sidebar({ children }: SidebarProps) {
   ];
 
   useEffect(() => {
-    if (status === "authenticated" && session?.user) {
-      console.log("Datos de sesión:", session.user);
-      console.log("¿Es administrador?:", isAdmin);
-    }
-    
     function handleClickOutside(event: MouseEvent) {
       if (userMenuRef.current && event.target instanceof Node && !userMenuRef.current.contains(event.target)) {
         setUserMenuOpen(false);
       }
     }
-
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [userMenuRef, isAdmin, session?.user, status]);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <div className="flex">
@@ -119,7 +105,7 @@ function Sidebar({ children }: SidebarProps) {
       >
         <div className="p-4 border-b border-[#fcc5df] flex items-center justify-between rounded-xl drop-shadow-sm">
           <Image  
-            src="/images/pensando.jpg"  
+            src="/img/logo.png"  
             alt="Dulces Delicias Logo"  
             width={80}
             height={80}
@@ -250,16 +236,6 @@ function Sidebar({ children }: SidebarProps) {
 
       {/* Main content area */}
       <main className="flex-1 min-h-screen p-4 transition-all duration-300" style={{ marginLeft: sidebarOpen && !isCollapsed ? 240 : isCollapsed ? 72 : 0 }}>
-        <header className="mb-4 flex items-center justify-between">
-          {!sidebarOpen && (
-            <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-md hover:bg-rose-100 transition-colors">
-              <Menu size={24} />
-            </button>
-          )}
-          <h1 className="text-2xl font-semibold">Bienvenido</h1>
-          {/* Aquí podrías poner más botones o barra superior */}
-        </header>
-        
         {children}
       </main>
 
