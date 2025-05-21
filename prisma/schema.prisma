@@ -1,169 +1,195 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "sqlserver"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
 }
 
-model Pastel {
-  id          Int      @id @default(autoincrement())
-  nombre      String
-  descripcion String
-  precio      Float
-  imagen      String
-  destacado   Boolean  @default(false)
-  etiquetas   String[]
-  calificacion Float   @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  pedidos     PedidoItem[]
+model carrito {
+  id                    Int                     @id(map: "PK__carrito__3213E83F3C948E47") @default(autoincrement())
+  fk_usuario            Int?
+  fecha                 DateTime?               @default(now(), map: "DF__carrito__fecha__2C538F61") @db.DateTime
+  activo                Boolean?                @default(true, map: "DF__carrito__activo__2D47B39A")
+  USER                  USER?                   @relation(fields: [fk_usuario], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__carrito__fk_usua__5F141958")
+  carrito_items         carrito_items[]
+  carrito_personalizado carrito_personalizado[]
 }
 
-model Usuario {
-  id        Int      @id @default(autoincrement())
-  nombre    String
-  email     String   @unique
-  password  String
-  direccion String?
-  telefono  String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  pedidos   Pedido[]
+model carrito_items {
+  id              Int             @id(map: "PK__carrito___3213E83F5F3DA351") @default(autoincrement())
+  fk_carrito      Int?
+  fk_pastel       Int?
+  cantidad        Int             @default(1, map: "DF__carrito_i__canti__3118447E")
+  precio_unitario Decimal?        @db.Decimal(10, 2)
+  carrito         carrito?        @relation(fields: [fk_carrito], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__carrito_i__fk_ca__62E4AA3C")
+  pastel          pastel?         @relation(fields: [fk_pastel], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__carrito_i__fk_pa__63D8CE75")
+  pedido_pastel   pedido_pastel[]
 }
 
-model Pedido {
-  id            Int      @id @default(autoincrement())
-  usuarioId     Int
-  usuario       Usuario  @relation(fields: [usuarioId], references: [id])
-  estado        String   @default("pendiente") // pendiente, confirmado, enviado, entregado
-  total         Float
-  direccionEnvio String
-  instrucciones String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  items         PedidoItem[]
+model carrito_personalizado {
+  id                   Int                    @id(map: "PK__carrito___3213E83F2A8511D5") @default(autoincrement())
+  fk_carrito           Int?
+  fk_personalizado     Int?
+  cantidad             Int                    @default(1, map: "DF__carrito_p__canti__4336F4B9")
+  precio_unitario      Decimal?               @db.Decimal(10, 2)
+  carrito              carrito?               @relation(fields: [fk_carrito], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__carrito_p__fk_ca__75035A77")
+  personalizado        personalizado?         @relation(fields: [fk_personalizado], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__carrito_p__fk_pe__75F77EB0")
+  pedido_personalizado pedido_personalizado[]
 }
 
-model PedidoItem {
-  id        Int      @id @default(autoincrement())
-  pedidoId  Int
-  pedido    Pedido   @relation(fields: [pedidoId], references: [id])
-  pastelId  Int
-  pastel    Pastel   @relation(fields: [pastelId], references: [id])
-  cantidad  Int
-  precio    Float
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model categoria {
+  id           Int            @id(map: "PK__categori__3213E83F49DF89FA") @default(autoincrement())
+  nombre       String         @db.VarChar(100)
+  descripcion  String?        @db.VarChar(Max)
+  color        String?        @db.VarChar(20)
+  subcategoria subcategoria[]
 }
 
-// Modelo para productos (pasteles y materias primas)
-model Producto {
-  id          String   @id @default(uuid())
-  nombre      String
-  descripcion String?
-  tipo        String   // "pastel" o "materia_prima"
-  precio      Decimal  @db.Decimal(10, 2)
-  stock       Int      @default(0)
-  unidad      String   // "kg", "ml", "unidad"
-  imagen      String?
-  destacado   Boolean  @default(false)
-  disponible  Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relaciones
-  ingredientes Ingrediente[]
-  pedidos      PedidoProducto[]
-  recetas      RecetaProducto[]
+model etiquetas {
+  id              Int               @id(map: "PK__etiqueta__3213E83FA116526D") @default(autoincrement())
+  nombre          String            @db.VarChar(50)
+  color           String?           @db.VarChar(20)
+  pastel_etiqueta pastel_etiqueta[]
 }
 
-// Modelo para ingredientes (materias primas)
-model Ingrediente {
-  id          String   @id @default(uuid())
-  nombre      String
-  cantidad    Decimal  @db.Decimal(10, 2)
-  unidad      String   // "kg", "ml", "unidad"
-  stockMinimo Decimal  @db.Decimal(10, 2)
-  stockMaximo Decimal  @db.Decimal(10, 2)
-  proveedor   String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relaciones
-  productos   Producto[]
-  recetas     RecetaIngrediente[]
+model historial_precios {
+  id           Int       @id(map: "PK__historia__3213E83FFA3D4725") @default(autoincrement())
+  fk_pastel    Int?
+  precio       Decimal   @db.Decimal(10, 2)
+  fecha_inicio DateTime? @default(now(), map: "DF__historial__fecha__2882FE7D") @db.DateTime
+  fecha_fin    DateTime? @db.DateTime
+  pastel       pastel?   @relation(fields: [fk_pastel], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__historial__fk_pa__5A4F643B")
 }
 
-// Modelo para recetas
-model Receta {
-  id          String   @id @default(uuid())
-  nombre      String
-  descripcion String?
-  instrucciones String @db.Text
-  tiempoPreparacion Int // en minutos
-  dificultad  String   // "facil", "medio", "dificil"
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relaciones
-  productos   RecetaProducto[]
-  ingredientes RecetaIngrediente[]
+model pago {
+  id         Int       @id(map: "PK__pago__3213E83F670EEB7E") @default(autoincrement())
+  fk_pedido  Int?
+  monto      Decimal   @db.Decimal(10, 2)
+  metodo     String    @db.VarChar(20)
+  estado     String?   @default("pendiente", map: "DF__pago__estado__5832119F") @db.VarChar(20)
+  referencia String?   @db.VarChar(255)
+  fecha      DateTime? @default(now(), map: "DF__pago__fecha__592635D8") @db.DateTime
+  pedido     pedido?   @relation(fields: [fk_pedido], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__pago__fk_pedido__0AF29B96")
 }
 
-// Modelo para pedidos personalizados
-model PedidoPersonalizado {
-  id          String   @id @default(uuid())
-  clienteId   String
-  descripcion String
-  fechaEntrega DateTime
-  estado      String   // "pendiente", "en_proceso", "completado", "cancelado"
-  precio      Decimal  @db.Decimal(10, 2)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Relaciones
-  productos   PedidoProducto[]
-  cliente     User     @relation(fields: [clienteId], references: [id])
+model pastel {
+  id                Int                 @id(map: "PK__pastel__3213E83F720E8D55") @default(autoincrement())
+  nombre            String              @db.VarChar(100)
+  descripcion       String?             @db.VarChar(Max)
+  precio            Decimal             @db.Decimal(10, 2)
+  imagen            String?             @db.VarChar(Max)
+  destacado         Boolean?            @default(false, map: "DF__pastel__destacad__16644E42")
+  stock             Int?                @default(0, map: "DF__pastel__stock__1758727B")
+  disponible        Boolean?            @default(true, map: "DF__pastel__disponib__184C96B4")
+  fecha_creacion    DateTime?           @default(now(), map: "DF__pastel__fecha_cr__1940BAED") @db.DateTime
+  deleted           Boolean?            @default(false, map: "DF__pastel__deleted__1A34DF26")
+  carrito_items     carrito_items[]
+  historial_precios historial_precios[]
+  pastel_etiqueta   pastel_etiqueta[]
+  resenas           resenas[]
 }
 
-// Tablas de relación
-model RecetaProducto {
-  id          String   @id @default(uuid())
-  recetaId    String
-  productoId  String
-  cantidad    Decimal  @db.Decimal(10, 2)
-  unidad      String
+model pastel_etiqueta {
+  fk_pastel   Int
+  fk_etiqueta Int
+  etiquetas   etiquetas @relation(fields: [fk_etiqueta], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__pastel_et__fk_et__50C5FA01")
+  pastel      pastel    @relation(fields: [fk_pastel], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__pastel_et__fk_pa__4FD1D5C8")
 
-  // Relaciones
-  receta      Receta   @relation(fields: [recetaId], references: [id])
-  producto    Producto @relation(fields: [productoId], references: [id])
+  @@id([fk_pastel, fk_etiqueta], map: "PK__pastel_e__49920B287EA337B1")
 }
 
-model RecetaIngrediente {
-  id          String   @id @default(uuid())
-  recetaId    String
-  ingredienteId String
-  cantidad    Decimal  @db.Decimal(10, 2)
-  unidad      String
-
-  // Relaciones
-  receta      Receta     @relation(fields: [recetaId], references: [id])
-  ingrediente Ingrediente @relation(fields: [ingredienteId], references: [id])
+model pedido {
+  id                   Int                    @id(map: "PK__pedido__3213E83FE9778659") @default(autoincrement())
+  fk_usuario           Int?
+  fecha                DateTime?              @default(now(), map: "DF__pedido__fecha__47FBA9D6") @db.DateTime
+  estado               String?                @default("pendiente", map: "DF__pedido__estado__49E3F248") @db.VarChar(20)
+  total                Decimal?               @db.Decimal(10, 2)
+  direccion            String?                @db.VarChar(Max)
+  telefono             String?                @db.VarChar(20)
+  notas                String?                @db.VarChar(Max)
+  deleted              Boolean?               @default(false, map: "DF__pedido__deleted__4AD81681")
+  pago                 pago[]
+  USER                 USER?                  @relation(fields: [fk_usuario], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__pedido__fk_usuar__7CA47C3F")
+  pedido_pastel        pedido_pastel[]
+  pedido_personalizado pedido_personalizado[]
 }
 
-model PedidoProducto {
-  id          String   @id @default(uuid())
-  pedidoId    String
-  productoId  String
-  cantidad    Int
-  precio      Decimal  @db.Decimal(10, 2)
+model pedido_pastel {
+  id               Int            @id(map: "PK__pedido_p__3213E83FAE55D1EC") @default(autoincrement())
+  fk_pedido        Int?
+  fk_carrito_items Int?
+  total            Decimal?       @db.Decimal(10, 2)
+  carrito_items    carrito_items? @relation(fields: [fk_carrito_items], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__pedido_pa__fk_ca__00750D23")
+  pedido           pedido?        @relation(fields: [fk_pedido], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__pedido_pa__fk_pe__7F80E8EA")
+}
 
-  // Relaciones
-  pedido      PedidoPersonalizado @relation(fields: [pedidoId], references: [id])
-  producto    Producto            @relation(fields: [productoId], references: [id])
+model pedido_personalizado {
+  id                       Int                    @id(map: "PK__pedido_p__3213E83F77C1B152") @default(autoincrement())
+  fk_pedido                Int?
+  fk_carrito_personalizado Int?
+  imagen_referencia        String?                @db.VarChar(Max)
+  total                    Decimal?               @db.Decimal(10, 2)
+  carrito_personalizado    carrito_personalizado? @relation(fields: [fk_carrito_personalizado], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__pedido_pe__fk_ca__04459E07")
+  pedido                   pedido?                @relation(fields: [fk_pedido], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__pedido_pe__fk_pe__035179CE")
+}
+
+model personalizado {
+  id                    Int                     @id(map: "PK__personal__3213E83F310C3EC2") @default(autoincrement())
+  fk_usuario            Int?
+  nombre                String?                 @db.VarChar(100)
+  descripcion           String?                 @db.VarChar(Max)
+  fecha_creacion        DateTime?               @default(now(), map: "DF__personali__fecha__3AA1AEB8") @db.DateTime
+  imagen_referencia     String?                 @db.VarChar(Max)
+  carrito_personalizado carrito_personalizado[]
+  USER                  USER?                   @relation(fields: [fk_usuario], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__personali__fk_us__6C6E1476")
+  personalizado_detalle personalizado_detalle[]
+}
+
+model personalizado_detalle {
+  id               Int            @id(map: "PK__personal__3213E83FC1F9B19E") @default(autoincrement())
+  fk_personalizado Int?
+  fk_subcategoria  Int?
+  cantidad         Int?           @default(1, map: "DF__personali__canti__3E723F9C")
+  personalizado    personalizado? @relation(fields: [fk_personalizado], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__personali__fk_pe__703EA55A")
+  subcategoria     subcategoria?  @relation(fields: [fk_subcategoria], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__personali__fk_su__7132C993")
+}
+
+model resenas {
+  id           Int       @id(map: "PK__resenas__3213E83F224C6CEB") @default(autoincrement())
+  calificacion Int
+  comentarios  String?   @db.VarChar(Max)
+  fecha        DateTime? @default(now(), map: "DF__resenas__fecha__23BE4960") @db.DateTime
+  fk_pastel    Int?
+  fk_usuario   Int?
+  pastel       pastel?   @relation(fields: [fk_pastel], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__resenas__fk_past__558AAF1E")
+  USER         USER?     @relation(fields: [fk_usuario], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__resenas__fk_usua__567ED357")
+}
+
+model subcategoria {
+  id                    Int                     @id(map: "PK__subcateg__3213E83FE435A20E") @default(autoincrement())
+  fk_categoria          Int?
+  nombre                String?                 @db.VarChar(100)
+  detalles              String?                 @db.VarChar(Max)
+  precio_adicional      Decimal?                @db.Decimal(10, 2)
+  color                 String?                 @db.VarChar(20)
+  personalizado_detalle personalizado_detalle[]
+  categoria             categoria?              @relation(fields: [fk_categoria], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__subcatego__fk_ca__689D8392")
+}
+
+model USER {
+  id             Int             @id(map: "PK__USER__3213E83FB1DA7F41") @default(autoincrement())
+  email          String          @unique(map: "UQ_USER_email") @db.VarChar(255)
+  username       String          @unique(map: "UQ_USER_username") @db.VarChar(100)
+  password       String          @db.VarChar(255)
+  rol            String?         @default("cliente", map: "DF__USER__rol__1293BD5E") @db.VarChar(10)
+  createdDT      DateTime?       @default(now(), map: "DF__USER__createdDT__1387E197") @db.DateTime
+  profilePicture String?         @db.VarChar(Max)
+  telefono       String?         @db.VarChar(20)
+  carrito        carrito[]
+  pedido         pedido[]
+  personalizado  personalizado[]
+  resenas        resenas[]
 }
