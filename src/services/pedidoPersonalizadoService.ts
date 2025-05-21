@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+/*import { prisma } from '@/lib/prisma';
 
 export const pedidoPersonalizadoService = {
   // Crear un nuevo pedido personalizado
@@ -104,3 +104,17 @@ export const pedidoPersonalizadoService = {
     });
   },
 }; 
+*/
+
+// src/services/pedidoPersonalizadoService.ts
+
+// Servicio temporalmente deshabilitado
+export const pedidoPersonalizadoService = {
+  /**
+   * createPedidoPersonalizado: deshabilitado temporalmente.
+   * Lanza error si llega a usarse, para que sepas que debe reactivarse.
+   */
+  async createPedidoPersonalizado() {
+    throw new Error('pedidoPersonalizadoService deshabilitado temporalmente');
+  }
+};

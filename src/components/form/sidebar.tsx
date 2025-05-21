@@ -109,13 +109,6 @@ function Sidebar({ children }: SidebarProps) {
     };
   }, [userMenuRef, isAdmin, session?.user, status]);
 
-  const handleCarritoClick = () => {
-    if (!session) {
-      router.push('/auth/login');
-      return;
-    }
-    setCarritoAbierto(true);
-  };
 
   return (
     <div className="flex">

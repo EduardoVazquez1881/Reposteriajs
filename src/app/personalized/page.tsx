@@ -169,7 +169,8 @@ const App: React.FC = () => {
       };
 
       // Guardar el pedido en la base de datos
-      await pedidoPersonalizadoService.createPedidoPersonalizado(pedidoPersonalizado);
+      await pedidoPersonalizadoService.createPedidoPersonalizado();
+      console.log('Pedido creado:', pedidoPersonalizado);
       
       // Redirigir a la página de pedidos y ventas
       router.push('/admin/orders');

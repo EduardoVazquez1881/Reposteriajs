@@ -193,3 +193,4 @@ model USER {
   personalizado  personalizado[]
   resenas        resenas[]
 }
+
