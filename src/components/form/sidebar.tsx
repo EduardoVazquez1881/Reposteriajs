@@ -30,9 +30,9 @@ function Sidebar({ children }: SidebarProps) {
   const { data: session, status } = useSession();
   const { carrito, eliminarDelCarrito, actualizarCantidad, total } = useCarrito();
   const userMenuRef = useRef<HTMLDivElement>(null);
-  
-  // Temporalmente forzamos isAdmin a true para desarrollo
-  const isAdmin = true; // Cambiado de la verificación original a true
+
+  // Aquí comprobamos si el usuario es admin usando la sesión
+  const isAdmin = session?.user?.rol === 'admin' || session?.user?.role === 'admin';
 
   const router = useRouter();
 
@@ -40,8 +40,8 @@ function Sidebar({ children }: SidebarProps) {
   console.log("Estado de sesión:", status);
   console.log("Valor de rol:", session?.user?.rol);
   console.log("Valor de role:", session?.user?.role);
+  console.log("¿Es administrador?:", isAdmin);
 
-  // Define a type for menu items to include optional spacing and divider
   type MenuItem = {
     icon?: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
     text: string;
@@ -52,7 +52,6 @@ function Sidebar({ children }: SidebarProps) {
     badge?: number;
   };
 
-  // Menú para usuarios regulares
   const regularMenuItems: MenuItem[] = [
     { icon: Home, text: 'Inicio', href: '/' },
     { icon: PackageSearch, text: 'Productos', href: '/dulcesdelicias' },
@@ -68,7 +67,6 @@ function Sidebar({ children }: SidebarProps) {
     { icon: HelpCircle, text: 'Ayuda', href: '/ayuda', spacing: 'mt-auto' },
   ];
 
-  // Menú adicional para administradores
   const adminMenuItems: MenuItem[] = [
     { icon: ClipboardList, text: 'Pedidos y Ventas', href: '/admin/orders' },
     { icon: Package, text: 'Inventario', href: '/inventario' },
@@ -78,7 +76,6 @@ function Sidebar({ children }: SidebarProps) {
     { icon: Star, text: 'Delicoins', href: '/admin/delicoins' },
   ];
 
-  // Combinamos los menús según el rol del usuario
   const menuItems = isAdmin 
     ? [...regularMenuItems, { divider: true, text: 'Administración' }, ...adminMenuItems] 
     : regularMenuItems;
@@ -90,14 +87,12 @@ function Sidebar({ children }: SidebarProps) {
   ];
 
   useEffect(() => {
-    // Para debugging - verifica los datos de la sesión
     if (status === "authenticated" && session?.user) {
       console.log("Datos de sesión:", session.user);
       console.log("¿Es administrador?:", isAdmin);
     }
     
     function handleClickOutside(event: MouseEvent) {
-      // Verificar si event.target es un Node
       if (userMenuRef.current && event.target instanceof Node && !userMenuRef.current.contains(event.target)) {
         setUserMenuOpen(false);
       }
@@ -108,7 +103,6 @@ function Sidebar({ children }: SidebarProps) {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [userMenuRef, isAdmin, session?.user, status]);
-
 
   return (
     <div className="flex">
@@ -152,7 +146,6 @@ function Sidebar({ children }: SidebarProps) {
           <ul className="my-4 space-y-4">
             {menuItems.map((item, index) => (
               item.divider ? (
-                // Separador con título para sección de administración
                 <li key={`divider-${index}`} className={`pt-4 pb-2 ${isCollapsed ? 'hidden' : ''}`}>
                   <div className="flex items-center gap-2">
                     <div className="h-0.5 flex-grow bg-rose-200/50 rounded-full"></div>
@@ -170,16 +163,16 @@ function Sidebar({ children }: SidebarProps) {
                       ${item.spacing || ''}
                     `}
                   >
-                   <div className="relative">
-  {item.icon && (
-    <item.icon size={24} className="text-rose-700" />
-  )}
-  {item.badge && item.badge > 0 && (
-    <span className="absolute -top-2 -right-2 bg-pink-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
-      {item.badge}
-    </span>
-  )}
-</div>
+                    <div className="relative">
+                      {item.icon && (
+                        <item.icon size={24} className="text-rose-700" />
+                      )}
+                      {item.badge && item.badge > 0 && (
+                        <span className="absolute -top-2 -right-2 bg-pink-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                          {item.badge}
+                        </span>
+                      )}
+                    </div>
                     {!isCollapsed && (
                       <span className="text-gray-900">{item.text}</span>
                     )}
@@ -229,180 +222,104 @@ function Sidebar({ children }: SidebarProps) {
                 />
               </div>
               
-              {/* Drop-up menu */}
               {userMenuOpen && (
                 <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-lg shadow-lg border border-gray-100">
                   {userMenuItems.map((item, index) => (
                     <button
                       key={index}
-                      onClick={item.action}
-                      className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-gray-50 transition-colors"
+                      onClick={() => {
+                        item.action();
+                        setUserMenuOpen(false);
+                      }}
+                      className="flex items-center gap-3 w-full px-4 py-3 hover:bg-rose-100 rounded-tl-lg rounded-tr-lg last:rounded-bl-lg last:rounded-br-lg"
                     >
-                      <item.icon size={20} className="text-gray-500" />
-                      <span>{item.text}</span>
+                      {item.icon && <item.icon size={20} className="text-rose-700" />}
+                      <span className="text-gray-900">{item.text}</span>
                     </button>
                   ))}
                 </div>
               )}
             </>
           ) : (
-            <Link
-              href="/auth/login"
-              className="flex items-center gap-3 p-2 border-b-2 border-white/50 rounded-xl hover:border-rose-700 transition-all duration-500"
-            >
-              <CircleUserRound size={24} className="text-rose-700" />
-              {!isCollapsed && (
-                <span className="text-gray-900">Iniciar sesión</span>
-              )}
-            </Link>
+            <div className="text-center text-sm text-gray-500 py-4">
+              <Link href="/auth/login" className="text-rose-600 font-semibold hover:underline">Iniciar sesión</Link>
+            </div>
           )}
         </div>
       </aside>
 
-      {/* Carrito en Sidebar */}
+      {/* Main content area */}
+      <main className="flex-1 min-h-screen p-4 transition-all duration-300" style={{ marginLeft: sidebarOpen && !isCollapsed ? 240 : isCollapsed ? 72 : 0 }}>
+        <header className="mb-4 flex items-center justify-between">
+          {!sidebarOpen && (
+            <button onClick={() => setSidebarOpen(true)} className="lg:hidden p-2 rounded-md hover:bg-rose-100 transition-colors">
+              <Menu size={24} />
+            </button>
+          )}
+          <h1 className="text-2xl font-semibold">Bienvenido</h1>
+          {/* Aquí podrías poner más botones o barra superior */}
+        </header>
+        
+        {children}
+      </main>
+
+      {/* Carrito overlay */}
       {carritoAbierto && (
-        <div className="fixed inset-0 bg-black/30 z-40" onClick={() => setCarritoAbierto(false)}>
+        <aside 
+          className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-end"
+          onClick={() => setCarritoAbierto(false)}
+        >
           <div 
-            className="fixed inset-y-0 right-0 w-80 bg-white shadow-xl z-50 flex flex-col"
-            onClick={e => e.stopPropagation()}
+            className="w-96 bg-white h-full p-6 overflow-y-auto shadow-lg"
+            onClick={(e) => e.stopPropagation()}
           >
-            {/* Encabezado del carrito */}
-            <div className="px-4 py-3 bg-rose-50 flex justify-between items-center border-b border-rose-100">
-              <div className="flex items-center gap-2 text-rose-700">
-                <ShoppingCart size={20} />
-                <h2 className="font-semibold text-lg">Tu Carrito</h2>
-              </div>
-              <button 
-                onClick={() => setCarritoAbierto(false)}
-                className="text-rose-500 hover:text-rose-700"
-              >
-                <X size={24} />
-              </button>
-            </div>
-            
-            {/* Contenido del carrito */}
-            <div className="flex-grow overflow-y-auto p-4">
-              {carrito.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center">
-                  <div className="bg-rose-50 p-6 rounded-full mb-4">
-                    <ShoppingCart size={32} className="text-rose-300" />
+            <h2 className="text-xl font-semibold mb-4">Carrito de compras</h2>
+            {carrito.length === 0 ? (
+              <p>Tu carrito está vacío.</p>
+            ) : (
+              carrito.map((item, idx) => (
+                <div key={idx} className="flex items-center mb-4 border-b border-gray-200 pb-2">
+                  <div className="flex-1">
+                    <p className="font-medium">{item.nombre}</p>
+                    <p className="text-sm text-gray-600">${item.precio}</p>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <button 
+                        className="px-2 py-1 bg-rose-200 rounded" 
+                        onClick={() => actualizarCantidad(item.id, (item.cantidad || 1) - 1)}
+                        disabled={(item.cantidad || 1) <= 1}
+                      >
+                        <Minus size={16} />
+                      </button>
+                      <span>{item.cantidad || 1}</span>
+                      <button 
+                        className="px-2 py-1 bg-rose-200 rounded" 
+                        onClick={() => actualizarCantidad(item.id, (item.cantidad || 1) + 1)}
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
                   </div>
-                  <h3 className="font-medium text-lg text-rose-900 mb-2">Tu carrito está vacío</h3>
-                  <p className="text-gray-500 mb-6">
-                    Parece que aún no has añadido ningún delicioso pastel a tu carrito.
-                  </p>
-                  <button 
-                    onClick={() => setCarritoAbierto(false)}
-                    className="bg-pink-600 text-white px-6 py-2 rounded-full hover:bg-pink-700 transition-colors"
-                  >
-                    Explorar Pasteles
+                  <button onClick={() => eliminarDelCarrito(item.id)} className="text-red-600 hover:text-red-800">
+                    <X size={20} />
                   </button>
                 </div>
-              ) : (
-                <>
-                  <ul className="space-y-4">
-                    {carrito.map((item) => (
-                      <li key={item.id} className="flex gap-3 pb-4 border-b border-gray-100">
-                        {/* Imagen miniatura */}
-                        <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                          <Image
-                            width={80}
-                            height={80} 
-                            src={item.imagen} 
-                            alt={item.nombre} 
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        
-                        {/* Detalles del producto */}
-                        <div className="flex-grow">
-                          <h4 className="font-medium text-rose-900">{item.nombre}</h4>
-                          <p className="text-rose-600 font-semibold">${item.precio}</p>
-                          
-                          {/* Control de cantidad */}
-                          <div className="flex items-center mt-2">
-                            <button 
-                              onClick={() => actualizarCantidad(item.id, (item.cantidad || 1) - 1)}
-                              className="w-6 h-6 flex items-center justify-center bg-gray-100 rounded-md"
-                            >
-                              <Minus size={14} />
-                            </button>
-                            <span className="mx-2 w-8 text-center">{item.cantidad || 1}</span>
-                            <button 
-                              onClick={() => actualizarCantidad(item.id, (item.cantidad || 1) + 1)}
-                              className="w-6 h-6 flex items-center justify-center bg-gray-100 rounded-md"
-                            >
-                              <Plus size={14} />
-                            </button>
-                            
-                            <button 
-                              onClick={() => eliminarDelCarrito(item.id)}
-                              className="ml-auto text-gray-400 hover:text-rose-500"
-                            >
-                              <X size={16} />
-                            </button>
-                          </div>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                  
-                  {/* Resumen del pedido */}
-                  <div className="mt-6 bg-rose-50 p-4 rounded-lg">
-                    <div className="flex justify-between mb-2">
-                      <span className="text-gray-600">Subtotal:</span>
-                      <span className="font-medium">${total}</span>
-                    </div>
-                    <div className="flex justify-between mb-4">
-                      <span className="text-gray-600">Envío:</span>
-                      <span className="font-medium">$50</span>
-                    </div>
-                    <div className="flex justify-between text-lg font-bold text-rose-900 pt-2 border-t border-rose-200">
-                      <span>Total:</span>
-                        <span>${(total || 0) + 50}</span>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-            
-            {/* Pie del carrito */}
-            {carrito.length > 0 && (
-              <div className="p-4 border-t border-gray-200">
-                <button className="w-full bg-gradient-to-r from-pink-600 to-purple-600 text-white py-3 rounded-full font-medium hover:shadow-lg transition-all">
-                  Proceder al Pago
-                </button>
-              </div>
+              ))
             )}
+            <div className="border-t border-gray-300 pt-4">
+              <p className="font-semibold text-lg">Total: ${total}</p>
+              <button 
+                className="w-full mt-4 bg-rose-700 text-white py-2 rounded hover:bg-rose-800 transition-colors"
+                onClick={() => {
+                  router.push('/checkout');
+                  setCarritoAbierto(false);
+                }}
+              >
+                Finalizar compra
+              </button>
+            </div>
           </div>
-        </div>
+        </aside>
       )}
-
-      {/* Mobile Header */}
-      <header className="bg-white shadow-sm p-4 flex lg:hidden items-center">
-        <button 
-          onClick={() => setSidebarOpen(true)}
-          className="text-gray-600 hover:text-gray-900 duration-500"
-        >
-          <Menu size={24} />
-        </button>
-      </header>
-      
-      {/* Main Content with Scroll */}
-      <div 
-        className={`flex-1 min-h-screen transition-all duration-300 ease-in-out ${
-          sidebarOpen 
-            ? isCollapsed 
-              ? 'lg:ml-18' 
-              : 'lg:ml-60' 
-            : 'lg:ml-0'
-        }`}
-      >
-        {/* Page Content */}
-        <div className="p-4">
-          {children}
-        </div>
-      </div>
     </div>
   );
 }
