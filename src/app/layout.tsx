@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { CarritoProvider } from '@/context/CarritoContext'
+import { Toaster } from 'sonner';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,6 +37,7 @@ export default function RootLayout({
             </main>
           </Providers>
         </CarritoProvider>
+        <Toaster richColors position="top-center" />
       </body>
     </html>
   );

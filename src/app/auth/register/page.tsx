@@ -129,7 +129,8 @@ export default function RegisterPage() {
                 </form>
                 <Image  src="/login.svg"   
                 alt="Logo de la repostería"  
-                className="fixed w-4/8 -z-10 rounded-4xl"/>
+                className="fixed w-4/8 -z-10 rounded-4xl"
+                width={400} height={400} />
             </div>    
         </div>
     );

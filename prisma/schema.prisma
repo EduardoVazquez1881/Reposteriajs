@@ -105,6 +105,7 @@ model pedido {
   id                   Int                    @id(map: "PK__pedido__3213E83FE9778659") @default(autoincrement())
   fk_usuario           Int?
   fecha                DateTime?              @default(now(), map: "DF__pedido__fecha__47FBA9D6") @db.DateTime
+  fechaEntrega         DateTime?              @db.DateTime
   estado               String?                @default("pendiente", map: "DF__pedido__estado__49E3F248") @db.VarChar(20)
   total                Decimal?               @db.Decimal(10, 2)
   direccion            String?                @db.VarChar(Max)

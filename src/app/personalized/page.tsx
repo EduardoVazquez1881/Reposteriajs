@@ -8,9 +8,15 @@ import {
   Sandwich,
   Upload,
   AlertOctagon,
+  CheckCircle2,
+  XCircle,
+  Eye,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { pedidoPersonalizadoService } from '@/services/pedidoPersonalizadoService';
+import { Button } from '@/components/ui/button';
+import { pedidoService } from '@/services/pedidoService';
+import { toast } from 'sonner';
 
 // Definición de tipos e interfaces
 type CakeSize = 'small' | 'medium' | 'large';
@@ -32,6 +38,25 @@ interface Step {
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
 }
 
+interface PedidoPersonalizado {
+  id?: string;
+  clienteId: string;
+  descripcion: string;
+  fechaEntrega: Date;
+  estado: 'pendiente' | 'en_proceso' | 'completado' | 'cancelado';
+  precio: number;
+  productos: Array<{
+    nombre: string;
+    descripcion: string;
+    tipo: string;
+    stock: number;
+    unidad: string;
+    precio: number;
+    destacado: boolean;
+    disponible: boolean;
+  }>;
+}
+
 const App: React.FC = () => {
   const { data: session } = useSession();
   const router = useRouter();
@@ -43,6 +68,9 @@ const App: React.FC = () => {
   const [restrictions, setRestrictions] = useState<DietaryRestriction[]>([]);
   const [customImage, setCustomImage] = useState<File | null>(null);
   const [currentStep, setCurrentStep] = useState<number>(0);
+  const [pedidoEnviado, setPedidoEnviado] = useState<PedidoPersonalizado | null>(null);
+  const [mostrarDetalles, setMostrarDetalles] = useState(false);
+  const [misPedidos, setMisPedidos] = useState<any[]>([]);
 
   // Datos con tipado correcto
   const sizes: CakeOption[] = [
@@ -147,38 +175,76 @@ const App: React.FC = () => {
 
   const submitOrder = async (): Promise<void> => {
     try {
-      // Crear el objeto del pedido personalizado
-      const pedidoPersonalizado = {
-        clienteId: session?.user?.id || 'cliente_temporal',
-        descripcion: `Pastel personalizado: ${selectedSize} ${selectedLayers} pisos, ${selectedCake} con ${selectedFilling}, ${selectedFrosting}`,
-        fechaEntrega: new Date(),
-        estado: 'pendiente',
-        precio: calcularPrecioTotal(),
-        productos: [
-          {
-            nombre: 'Pastel Personalizado',
-            descripcion: `Pastel personalizado: ${selectedSize} ${selectedLayers} pisos, ${selectedCake} con ${selectedFilling}, ${selectedFrosting}`,
-            tipo: 'pastel',
-            stock: 1,
-            unidad: 'unidad',
-            precio: calcularPrecioTotal(),
-            destacado: false,
-            disponible: true
-          }
-        ]
-      };
+      // Validar que el usuario esté autenticado
+      if (!session?.user?.id) {
+        toast.error('Debes iniciar sesión para realizar un pedido');
+        return;
+      }
 
-      // Guardar el pedido en la base de datos
-      await pedidoPersonalizadoService.createPedidoPersonalizado();
-      console.log('Pedido creado:', pedidoPersonalizado);
-      
-      // Redirigir a la página de pedidos y ventas
-      router.push('/admin/orders');
-      
-      alert('¡Pedido enviado con éxito! Serás redirigido a la sección de pedidos.');
-    } catch (error) {
+      // Validar que todos los campos necesarios estén seleccionados
+      if (!selectedSize || !selectedCake || !selectedFilling || !selectedFrosting) {
+        toast.error('Por favor, completa todos los campos requeridos');
+        return;
+      }
+
+      const pedidoData = {
+        usuarioId: parseInt(session.user.id),
+        total: calcularPrecioTotal(),
+        direccionEnvio: 'Dirección por confirmar',
+        instrucciones: `Pastel personalizado: ${selectedSize} ${selectedLayers} pisos, ${selectedCake} con ${selectedFilling}, ${selectedFrosting}. Restricciones: ${restrictions.join(', ') || 'Ninguna'}`,
+        items: [{
+          pastelId: 1, // ID temporal
+          cantidad: 1,
+          precio: calcularPrecioTotal()
+        }]
+      };
+      const response = await pedidoService.createPedido(pedidoData);
+      if (!response) throw new Error('No se recibió respuesta del servidor');
+      setMisPedidos((prev) => [...prev, response]);
+      setPedidoEnviado(response);
+      toast.success('¡Pedido personalizado realizado con éxito!');
+      // Redirigir a la página de estado del pedido
+      router.push(`/personalized/estado/${response.id}`);
+    } catch (error: any) {
       console.error('Error al crear el pedido:', error);
-      alert('Hubo un error al procesar tu pedido. Por favor, intenta nuevamente.');
+      
+      // Manejar diferentes tipos de errores
+      if (error.response?.status === 400) {
+        toast.error('Faltan datos requeridos en el pedido');
+      } else if (error.response?.status === 401) {
+        toast.error('Debes iniciar sesión para realizar un pedido');
+      } else if (error.response?.status === 500) {
+        toast.error('Error en el servidor. Por favor, intenta más tarde');
+      } else {
+        toast.error('Hubo un error al procesar tu pedido. Por favor, intenta nuevamente');
+      }
+    }
+  };
+
+  const cancelarPedido = async (): Promise<void> => {
+    if (pedidoEnviado) {
+      try {
+        // Aquí iría la lógica para cancelar el pedido en la base de datos
+        setPedidoEnviado({ ...pedidoEnviado, estado: 'cancelado' });
+        alert('Pedido cancelado exitosamente.');
+      } catch (error) {
+        console.error('Error al cancelar el pedido:', error);
+        alert('Hubo un error al cancelar el pedido.');
+      }
+    }
+  };
+
+  const finalizarPedido = async (): Promise<void> => {
+    if (pedidoEnviado) {
+      try {
+        // Aquí iría la lógica para finalizar el pedido en la base de datos
+        setPedidoEnviado({ ...pedidoEnviado, estado: 'completado' });
+        toast.success('Pedido finalizado exitosamente.');
+        router.push(`/personalized/estado/${pedidoEnviado.id}`);
+      } catch (error) {
+        console.error('Error al finalizar el pedido:', error);
+        toast.error('Hubo un error al finalizar el pedido.');
+      }
     }
   };
 
@@ -429,6 +495,67 @@ const App: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* Sección de Pedido Enviado */}
+            {pedidoEnviado && (
+              <div className="mt-8 p-6 bg-white rounded-lg shadow-md border border-gray-200">
+                <h3 className="text-xl font-semibold mb-4">Estado del Pedido</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Estado:</span>
+                    <span className={`font-medium ${
+                      pedidoEnviado.estado === 'pendiente' ? 'text-yellow-600' :
+                      pedidoEnviado.estado === 'en_proceso' ? 'text-blue-600' :
+                      pedidoEnviado.estado === 'completado' ? 'text-green-600' :
+                      'text-red-600'
+                    }`}>
+                      {pedidoEnviado.estado.charAt(0).toUpperCase() + pedidoEnviado.estado.slice(1).replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Precio Total:</span>
+                    <span className="font-medium text-rose-600">${pedidoEnviado.precio}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-gray-600">Fecha de Entrega:</span>
+                    <span className="font-medium">{new Date(pedidoEnviado.fechaEntrega).toLocaleDateString()}</span>
+                  </div>
+                  {mostrarDetalles && (
+                    <div className="mt-4 p-4 bg-gray-50 rounded-md">
+                      <h4 className="font-medium mb-2">Detalles del Pedido:</h4>
+                      <p className="text-gray-600">{pedidoEnviado.descripcion}</p>
+                    </div>
+                  )}
+                  <div className="flex gap-3 mt-6">
+                    <Button
+                      onClick={() => setMostrarDetalles(!mostrarDetalles)}
+                      className="flex items-center gap-2 bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    >
+                      <Eye size={18} />
+                      {mostrarDetalles ? 'Ocultar Detalles' : 'Ver Detalles'}
+                    </Button>
+                    {pedidoEnviado.estado === 'pendiente' && (
+                      <>
+                        <Button
+                          onClick={finalizarPedido}
+                          className="flex items-center gap-2 bg-green-600 text-white hover:bg-green-700"
+                        >
+                          <CheckCircle2 size={18} />
+                          Finalizar Pedido
+                        </Button>
+                        <Button
+                          onClick={cancelarPedido}
+                          className="flex items-center gap-2 bg-red-600 text-white hover:bg-red-700"
+                        >
+                          <XCircle size={18} />
+                          Cancelar Pedido
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
