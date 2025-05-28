@@ -5,6 +5,9 @@ import { ShoppingBag, X, Plus, Minus, CreditCard } from 'lucide-react';
 import { useCarrito } from '@/context/CarritoContext';
 import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import { pedidoService } from '@/services/pedidoService';
+import { toast } from 'sonner';
+import { useState } from 'react';
 
 interface CarritoLateralProps {
   isOpen: boolean;
@@ -12,19 +15,86 @@ interface CarritoLateralProps {
 }
 
 export default function CarritoLateral({ isOpen, setIsOpen }: CarritoLateralProps) {
-  const { carrito, eliminarDelCarrito, actualizarCantidad } = useCarrito();
+  const { carrito, eliminarDelCarrito, actualizarCantidad, limpiarCarrito } = useCarrito();
   const { data: session } = useSession();
   const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
   
   // Si el panel no está abierto, no renderizar nada
   if (!isOpen) return null;
   
-  const handleCarritoClick = () => {
-    if (!session) {
+  const handleCarritoClick = async () => {
+    if (!session?.user?.id) {
+      toast.error('Debes iniciar sesión para realizar un pedido');
       router.push('/auth/login');
       return;
     }
-    router.push('/checkout/ticket');
+
+    if (carrito.length === 0) {
+      toast.error('Tu carrito está vacío');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      console.log('Iniciando proceso de creación de pedido...');
+      console.log('Items en el carrito:', carrito);
+
+      // Crear el pedido directamente
+      const pedidoData = {
+        fk_usuario: parseInt(session.user.id),
+        direccion: 'Por definir',
+        telefono: 'Por definir',
+        notas: 'Pedido desde carrito',
+        fechaEntrega: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+        carrito_items: carrito.map(item => {
+          // Asegurarnos de que el ID sea un número
+          const pastelId = typeof item.id === 'string' ? parseInt(item.id) : item.id;
+          if (isNaN(pastelId)) {
+            throw new Error(`ID de pastel inválido: ${item.id}`);
+          }
+          return {
+            id: 0, // El ID será asignado por el backend
+            fk_pastel: pastelId,
+            cantidad: item.cantidad || 1
+          };
+        }),
+        carrito_personalizado: []
+      };
+
+      console.log('Creando pedido con datos:', pedidoData);
+
+      // Crear el pedido
+      const pedidoCreado = await pedidoService.createPedido(pedidoData);
+      
+      if (!pedidoCreado || !pedidoCreado.id) {
+        console.error('Error: El pedido no se creó correctamente', pedidoCreado);
+        throw new Error('No se pudo crear el pedido correctamente');
+      }
+
+      console.log('Pedido creado exitosamente:', pedidoCreado);
+
+      // Limpiar el carrito y cerrar el panel
+      limpiarCarrito();
+      setIsOpen(false);
+      
+      // Mostrar mensaje de éxito
+      toast.success('¡Pedido creado exitosamente!');
+      
+      // Redirigir al usuario a la página de checkout con el ID del pedido
+      router.push(`/checkout/${pedidoCreado.id}`);
+      
+    } catch (error) {
+      console.error('Error detallado al crear el pedido:', error);
+      if (error instanceof Error) {
+        toast.error(`Error: ${error.message}`);
+      } else {
+        toast.error('Hubo un error al procesar tu pedido. Por favor, intenta de nuevo.');
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
   
   const total = carrito.reduce((sum, item) => sum + (Number(item.precio) * (item.cantidad || 1)), 0);
@@ -138,10 +208,13 @@ export default function CarritoLateral({ isOpen, setIsOpen }: CarritoLateralProp
         <div className="p-4 border-t border-gray-200">
           <button 
             onClick={handleCarritoClick}
-            className="w-full bg-gradient-to-r from-pink-600 to-purple-600 text-white py-3 rounded-full font-medium hover:shadow-lg transition-all flex items-center justify-center gap-2"
+            disabled={isLoading}
+            className={`w-full bg-gradient-to-r from-pink-600 to-purple-600 text-white py-3 rounded-full font-medium hover:shadow-lg transition-all flex items-center justify-center gap-2 ${
+              isLoading ? 'opacity-50 cursor-not-allowed' : ''
+            }`}
           >
             <CreditCard size={20} />
-            Proceder al Pago
+            {isLoading ? 'Procesando...' : 'Proceder al Pago'}
           </button>
         </div>
       )}

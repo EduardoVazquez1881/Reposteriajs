@@ -107,15 +107,12 @@ export async function GET(request: NextRequest) {
   }
 }
 
-interface ErrorResponse {
-  message: string;
-  status?: number;
-}
-
 // POST - Crear nuevo pedido
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
+    console.log('Datos recibidos en el endpoint:', body);
+
     const {
       fk_usuario,
       direccion,
@@ -141,46 +138,58 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validar que el usuario existe
+    const usuario = await prisma.uSER.findUnique({
+      where: { id: fk_usuario }
+    });
+
+    if (!usuario) {
+      return NextResponse.json(
+        { error: 'Usuario no encontrado' },
+        { status: 404 }
+      );
+    }
+
     // Calcular total
     let total = 0;
 
-    // Calcular total de pasteles regulares
-    for (const item of carrito_items) {
-      const pastel = await prisma.pastel.findUnique({
-        where: { id: item.fk_pastel }
-      });
-      if (pastel) {
-        total += Number(pastel.precio) * item.cantidad;
-      }
-    }
-
-    // Calcular total de pasteles personalizados
-    for (const item of carrito_personalizado) {
-      total += Number(item.precio_unitario || 0) * item.cantidad;
-    }
-
     // Crear el pedido con transacción
     const nuevoPedido = await prisma.$transaction(async (tx) => {
-      // Crear pedido principal
-      const pedido = await tx.pedido.create({
-        data: {
-          fk_usuario,
-          direccion,
-          telefono,
-          notas,
-          fechaEntrega: fechaEntrega ? new Date(fechaEntrega) : null,
-          total,
-          estado: 'pendiente'
-        }
-      });
-
-      // Crear pedido_pastel para cada item regular
-      for (const item of carrito_items) {
-        const carritoItem = await tx.carrito_items.findUnique({
-          where: { id: item.id }
+      try {
+        // Crear pedido principal
+        const pedido = await tx.pedido.create({
+          data: {
+            fk_usuario,
+            direccion,
+            telefono,
+            notas,
+            fechaEntrega: fechaEntrega ? new Date(fechaEntrega) : null,
+            total: 0, // Se actualizará después
+            estado: 'pendiente'
+          }
         });
 
-        if (carritoItem) {
+        // Crear pedido_pastel para cada item regular
+        for (const item of carrito_items) {
+          // Verificar si el pastel existe
+          const pastel = await tx.pastel.findUnique({
+            where: { id: item.fk_pastel }
+          });
+
+          if (!pastel) {
+            throw new Error(`El pastel con ID ${item.fk_pastel} no existe`);
+          }
+
+          // Crear el item del carrito
+          const carritoItem = await tx.carrito_items.create({
+            data: {
+              fk_pastel: item.fk_pastel,
+              cantidad: item.cantidad,
+              precio_unitario: Number(pastel.precio)
+            }
+          });
+
+          // Crear la relación pedido_pastel
           await tx.pedido_pastel.create({
             data: {
               fk_pedido: pedido.id,
@@ -188,16 +197,33 @@ export async function POST(request: NextRequest) {
               total: Number(carritoItem.precio_unitario) * carritoItem.cantidad
             }
           });
+
+          // Actualizar el total
+          total += Number(carritoItem.precio_unitario) * carritoItem.cantidad;
         }
-      }
 
-      // Crear pedido_personalizado para cada item personalizado
-      for (const item of carrito_personalizado) {
-        const carritoPersonalizado = await tx.carrito_personalizado.findUnique({
-          where: { id: item.id }
-        });
+        // Crear pedido_personalizado para cada item personalizado
+        for (const item of carrito_personalizado) {
+          // Primero crear el personalizado
+          const personalizado = await tx.personalizado.create({
+            data: {
+              fk_usuario,
+              nombre: 'Pastel Personalizado',
+              descripcion: notas || 'Pastel personalizado',
+              imagen_referencia: item.imagen_referencia
+            }
+          });
 
-        if (carritoPersonalizado) {
+          // Luego crear el carrito_personalizado
+          const carritoPersonalizado = await tx.carrito_personalizado.create({
+            data: {
+              fk_personalizado: personalizado.id,
+              cantidad: item.cantidad,
+              precio_unitario: item.precio_unitario
+            }
+          });
+
+          // Finalmente crear el pedido_personalizado
           await tx.pedido_personalizado.create({
             data: {
               fk_pedido: pedido.id,
@@ -206,10 +232,21 @@ export async function POST(request: NextRequest) {
               imagen_referencia: item.imagen_referencia
             }
           });
-        }
-      }
 
-      return pedido;
+          total += Number(carritoPersonalizado.precio_unitario) * carritoPersonalizado.cantidad;
+        }
+
+        // Actualizar el total del pedido
+        const pedidoActualizado = await tx.pedido.update({
+          where: { id: pedido.id },
+          data: { total }
+        });
+
+        return pedidoActualizado;
+      } catch (error) {
+        console.error('Error en la transacción:', error);
+        throw error;
+      }
     });
 
     // Obtener el pedido completo para retornar
@@ -245,13 +282,17 @@ export async function POST(request: NextRequest) {
       }
     });
 
+    if (!pedidoCompleto) {
+      throw new Error('Error al recuperar el pedido creado');
+    }
+
     return NextResponse.json(pedidoCompleto, { status: 201 });
-  } catch (error: unknown) {
-    const err = error as ErrorResponse;
-    console.error('Error al crear pedido:', err);
+  } catch (error) {
+    console.error('Error al crear pedido:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Error al crear el pedido';
     return NextResponse.json(
-      { error: err.message || 'Error al crear el pedido' },
-      { status: err.status || 500 }
+      { error: errorMessage },
+      { status: 500 }
     );
   }
 }
