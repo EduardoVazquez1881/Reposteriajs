@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { pedidoService } from '@/services/pedidoService';
 import { toast } from 'sonner';
-import { CreditCard, Package, Calendar, MapPin, ArrowLeft } from 'lucide-react';
+import { CreditCard, Package, Calendar, MapPin, ArrowLeft, Printer } from 'lucide-react';
 import Image from 'next/image';
 
 interface PedidoDetalle {
@@ -46,6 +46,7 @@ export default function CheckoutPage() {
   const [pedido, setPedido] = useState<PedidoDetalle | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isGenerandoTicket, setIsGenerandoTicket] = useState(false);
 
   useEffect(() => {
     const cargarPedido = async () => {
@@ -66,14 +67,87 @@ export default function CheckoutPage() {
     cargarPedido();
   }, [params.id, router]);
 
+  const imprimirTicket = () => {
+    if (!pedido) return;
+    
+    setIsGenerandoTicket(true);
+    try {
+      const fecha = new Date().toLocaleString('es-ES', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+
+      const contenido = [
+        '=== DULCES DELICIAS ===',
+        '=== TICKET DE PEDIDO ===',
+        `Fecha: ${fecha}`,
+        `No. Pedido: ${pedido.id}`,
+        '------------------------',
+        'DETALLES DEL CLIENTE:',
+        `Nombre: ${pedido.USER.username}`,
+        `Email: ${pedido.USER.email}`,
+        `Teléfono: ${pedido.USER.telefono || 'No especificado'}`,
+        '------------------------',
+        'PRODUCTOS:',
+        ...pedido.pedido_pastel.map(item => [
+          `${item.carrito_items.pastel.nombre}`,
+          `Cantidad: ${item.carrito_items.cantidad}`,
+          `Precio unitario: $${item.carrito_items.precio_unitario}`,
+          `Subtotal: $${Number(item.carrito_items.precio_unitario) * item.carrito_items.cantidad}`,
+          '------------------------'
+        ]).flat(),
+        'INFORMACIÓN DE ENTREGA:',
+        `Dirección: ${pedido.direccion || 'Por definir'}`,
+        `Fecha de entrega: ${pedido.fechaEntrega 
+          ? new Date(pedido.fechaEntrega).toLocaleDateString('es-ES', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric'
+            })
+          : 'Por definir'}`,
+        pedido.notas ? `Notas: ${pedido.notas}` : '',
+        '------------------------',
+        'RESUMEN DE PAGO:',
+        `Subtotal: $${pedido.total}`,
+        `Envío: Gratis`,
+        `Total: $${pedido.total}`,
+        '------------------------',
+        '¡GRACIAS POR TU PEDIDO!',
+        'Te mantendremos informado sobre el estado de tu pedido.',
+        '=== DULCES DELICIAS ==='
+      ].join('\n');
+
+      const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `pedido-${pedido.id}-${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      toast.success('Ticket generado exitosamente');
+    } catch (error) {
+      console.error('Error al generar el ticket:', error);
+      toast.error('Error al generar el ticket');
+    } finally {
+      setIsGenerandoTicket(false);
+    }
+  };
+
   const handlePago = async () => {
     if (!pedido) return;
 
     setIsProcessing(true);
     try {
-      // Aquí iría la lógica de pago
       toast.success('¡Pago procesado exitosamente!');
-      router.push('/admin/orders');
+      router.push('/dulcesdelicias');
     } catch (error) {
       console.error('Error al procesar el pago:', error);
       toast.error('Error al procesar el pago');
@@ -215,18 +289,25 @@ export default function CheckoutPage() {
                 </div>
 
                 <button
+                  onClick={imprimirTicket}
+                  disabled={isGenerandoTicket}
+                  className="w-full bg-white border-2 border-pink-600 text-pink-600 py-3 rounded-full font-medium hover:bg-pink-50 transition-all flex items-center justify-center gap-2"
+                >
+                  <Printer size={20} />
+                  {isGenerandoTicket ? 'Generando...' : 'Imprimir Ticket'}
+                </button>
+
+                <button
                   onClick={handlePago}
                   disabled={isProcessing}
-                  className={`w-full mt-6 bg-gradient-to-r from-pink-600 to-purple-600 text-white py-3 rounded-full font-medium hover:shadow-lg transition-all flex items-center justify-center gap-2 ${
-                    isProcessing ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
+                  className="w-full bg-gradient-to-r from-pink-600 to-purple-600 text-white py-3 rounded-full font-medium hover:shadow-lg transition-all flex items-center justify-center gap-2"
                 >
                   <CreditCard size={20} />
                   {isProcessing ? 'Procesando...' : 'Pagar Ahora'}
                 </button>
 
                 <p className="text-sm text-gray-500 text-center mt-4">
-                  Al proceder con el pago, aceptas nuestros términos y condiciones
+                  Puedes imprimir tu ticket antes de proceder con el pago
                 </p>
               </div>
             </div>
