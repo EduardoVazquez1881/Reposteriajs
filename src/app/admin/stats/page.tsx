@@ -5,6 +5,34 @@ import Sidebar from '@/components/form/sidebar';
 import { DollarSign, ShoppingCart, Users, Package, TrendingUp, RefreshCw } from 'lucide-react';
 import { pedidoService } from '@/services/pedidoService';
 import { toast } from 'sonner';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+} from 'chart.js';
+import { Line, Bar, Doughnut } from 'react-chartjs-2';
+
+// Registrar componentes de Chart.js
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  ArcElement,
+  Title,
+  Tooltip,
+  Legend,
+  Filler
+);
 
 interface Order {
   id: number;
@@ -318,6 +346,102 @@ const Estadisticas = () => {
     .sort((a, b) => b.sales - a.sales)
     .slice(0, 4);
 
+  // Preparar datos para el gráfico de ventas diarias
+  const getDailySalesData = () => {
+    const last7Days = Array.from({ length: 7 }, (_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      return date.toISOString().split('T')[0];
+    }).reverse();
+
+    const dailySales = last7Days.map(date => {
+      const dayOrders = completedOrders.filter(order => 
+        order.fecha.split('T')[0] === date
+      );
+      return dayOrders.reduce((sum, order) => sum + order.total, 0);
+    });
+
+    return {
+      labels: last7Days.map(date => new Date(date).toLocaleDateString('es-CO', { weekday: 'short' })),
+      datasets: [
+        {
+          label: 'Ventas Diarias',
+          data: dailySales,
+          fill: true,
+          borderColor: 'rgb(244, 63, 94)',
+          backgroundColor: 'rgba(244, 63, 94, 0.1)',
+          tension: 0.4
+        }
+      ]
+    };
+  };
+
+  // Preparar datos para el gráfico de distribución de ventas
+  const getSalesDistributionData = () => {
+    const categories = {
+      'Pasteles Regulares': 0,
+      'Pasteles Personalizados': 0,
+      'Otros Productos': 0
+    };
+
+    completedOrders.forEach(order => {
+      const regularTotal = order.pedido_pastel.reduce((sum, pedido) => sum + pedido.total, 0);
+      const customTotal = order.pedido_personalizado.reduce((sum, pedido) => sum + pedido.total, 0);
+      
+      categories['Pasteles Regulares'] += regularTotal;
+      categories['Pasteles Personalizados'] += customTotal;
+      categories['Otros Productos'] += order.total - regularTotal - customTotal;
+    });
+
+    return {
+      labels: Object.keys(categories),
+      datasets: [
+        {
+          data: Object.values(categories),
+          backgroundColor: [
+            'rgba(244, 63, 94, 0.8)',
+            'rgba(59, 130, 246, 0.8)',
+            'rgba(16, 185, 129, 0.8)'
+          ],
+          borderColor: [
+            'rgb(244, 63, 94)',
+            'rgb(59, 130, 246)',
+            'rgb(16, 185, 129)'
+          ],
+          borderWidth: 1
+        }
+      ]
+    };
+  };
+
+  // Preparar datos para el gráfico de productos más vendidos
+  const getTopProductsData = () => {
+    const productSales = topProductsArray.slice(0, 5);
+    
+    return {
+      labels: productSales.map(p => p.name),
+      datasets: [
+        {
+          label: 'Unidades Vendidas',
+          data: productSales.map(p => p.sales),
+          backgroundColor: 'rgba(244, 63, 94, 0.8)',
+          borderColor: 'rgb(244, 63, 94)',
+          borderWidth: 1
+        }
+      ]
+    };
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+      }
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-rose-50">
       <Sidebar />
@@ -385,40 +509,39 @@ const Estadisticas = () => {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Gráficos */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Ventas Diarias */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h2 className="text-xl font-semibold text-gray-800 mb-6">
+                Ventas del Día
+              </h2>
+              <div className="h-80">
+                <Line data={getDailySalesData()} options={chartOptions} />
+              </div>
+            </div>
+
+            {/* Distribución de Ventas */}
+            <div className="bg-white rounded-xl shadow-lg p-6">
+              <h2 className="text-xl font-semibold text-gray-800 mb-6">
+                Distribución de Ventas
+              </h2>
+              <div className="h-80">
+                <Doughnut data={getSalesDistributionData()} options={chartOptions} />
+              </div>
+            </div>
+
             {/* Productos Más Vendidos */}
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h2 className="text-xl font-semibold text-gray-800 mb-6">
                 Productos Más Vendidos
               </h2>
-              <div className="space-y-4">
-                {topProductsArray.map((product, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-                  >
-                    <div>
-                      <h3 className="font-medium text-gray-800">
-                        {product.name}
-                      </h3>
-                      <p className="text-sm text-gray-500">
-                        {product.sales} ventas
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-800">
-                        {formatCurrency(product.revenue)}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        Ingresos
-                      </p>
-                    </div>
-                  </div>
-                ))}
+              <div className="h-80">
+                <Bar data={getTopProductsData()} options={chartOptions} />
               </div>
             </div>
 
-            {/* Actividad Reciente */}
+            {/* Últimas Ventas */}
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h2 className="text-xl font-semibold text-gray-800 mb-6">
                 Últimas Ventas Completadas
@@ -447,26 +570,6 @@ const Estadisticas = () => {
                     </div>
                   </div>
                 ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Gráficos (placeholder) */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-6">
-                Ventas por Día
-              </h2>
-              <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center">
-                <p className="text-gray-500">Gráfico de ventas</p>
-              </div>
-            </div>
-            <div className="bg-white rounded-xl shadow-lg p-6">
-              <h2 className="text-xl font-semibold text-gray-800 mb-6">
-                Distribución de Ventas
-              </h2>
-              <div className="h-64 bg-gray-100 rounded-lg flex items-center justify-center">
-                <p className="text-gray-500">Gráfico de distribución</p>
               </div>
             </div>
           </div>
