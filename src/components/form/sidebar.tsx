@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Home, ShoppingCart, Phone, CircleUserRound, PackageSearch, UserPen, HelpCircle, AlignJustify, User, LogOut, Settings, ChevronUp, ClipboardList, BarChart3, Package, FileEdit, Gift, Star, Plus, Minus } from 'lucide-react';
+import { X, Home, ShoppingCart, Phone, CircleUserRound, PackageSearch, UserPen, HelpCircle, AlignJustify, User, LogOut, Settings, ChevronUp, ClipboardList, BarChart3, Package, FileEdit, Gift, Star, Plus, Minus, ShoppingBag, CreditCard } from 'lucide-react';
 import { useSession, signOut } from 'next-auth/react';
 import { DefaultSession } from 'next-auth';
 import Image from 'next/image';
@@ -30,10 +30,11 @@ function Sidebar({ children }: SidebarProps) {
   const router = useRouter();
   const { data: session, status } = useSession();
   const carritoContext = useCarrito();
+  const { carrito, eliminarDelCarrito, actualizarCantidad } = carritoContext;
   const userMenuRef = useRef<HTMLDivElement>(null);
 
-  // Usar las variables del contexto del carrito
-  const { carrito, eliminarDelCarrito, actualizarCantidad, total } = carritoContext;
+  // Calcular el total del carrito
+  const total = carrito.reduce((sum, item) => sum + (Number(item.precio) * (item.cantidad || 1)), 0);
 
   // Validar si es admin con la sesión
   const isAdmin = session?.user?.rol === 'admin' || session?.user?.role === 'admin';
@@ -244,106 +245,129 @@ function Sidebar({ children }: SidebarProps) {
 
       {/* Carrito overlay */}
       {carritoAbierto && (
-        <aside 
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-end transition-all duration-300"
-          onClick={() => setCarritoAbierto(false)}
-        >
-          <div 
-            className="w-96 bg-white h-full p-6 overflow-y-auto shadow-2xl transform transition-transform duration-300 ease-in-out"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-6 border-b border-gray-200 pb-4">
-              <h2 className="text-2xl font-bold text-gray-800">Carrito de Compras</h2>
-              <button 
-                onClick={() => setCarritoAbierto(false)}
-                className="text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                <X size={24} />
-              </button>
+        <div className="fixed inset-y-0 right-0 w-80 bg-white shadow-xl z-50 flex flex-col">
+          {/* Encabezado del panel */}
+          <div className="px-4 py-3 bg-rose-50 flex justify-between items-center border-b border-rose-100">
+            <div className="flex items-center gap-2 text-rose-700">
+              <ShoppingBag size={20} />
+              <h2 className="font-semibold text-lg">Tu Carrito</h2>
             </div>
-
+            <button 
+              onClick={() => setCarritoAbierto(false)}
+              className="text-rose-500 hover:text-rose-700"
+            >
+              <X size={24} />
+            </button>
+          </div>
+          
+          {/* Contenido del panel */}
+          <div className="flex-grow overflow-y-auto p-4">
             {carrito.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-gray-500">
-                <ShoppingCart size={48} className="mb-4 text-gray-400" />
-                <p className="text-lg">Tu carrito está vacío</p>
-                <p className="text-sm mt-2">¡Agrega algunos deliciosos pasteles!</p>
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <div className="bg-rose-50 p-6 rounded-full mb-4">
+                  <ShoppingBag size={32} className="text-rose-300" />
+                </div>
+                <h3 className="font-medium text-lg text-rose-900 mb-2">Tu carrito está vacío</h3>
+                <p className="text-gray-500 mb-6">
+                  Agrega algunos deliciosos pasteles a tu carrito para comenzar tu pedido.
+                </p>
+                <button 
+                  onClick={() => setCarritoAbierto(false)}
+                  className="bg-pink-600 text-white px-6 py-2 rounded-full hover:bg-pink-700 transition-colors"
+                >
+                  Explorar Pasteles
+                </button>
               </div>
             ) : (
               <>
-                <div className="space-y-4 mb-6">
-                  {carrito.map((item, idx) => (
-                    <div 
-                      key={idx} 
-                      className="flex items-center gap-4 p-4 bg-white rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow"
-                    >
-                      <div className="relative w-20 h-20 flex-shrink-0">
+                <ul className="space-y-4">
+                  {carrito.map((item) => (
+                    <li key={item.id} className="flex gap-3 pb-4 border-b border-gray-100">
+                      {/* Imagen miniatura */}
+                      <div className="w-20 h-20 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
                         <Image
-                          src={item.imagen || '/img/default-pastel.jpg'}
-                          alt={item.nombre}
-                          fill
-                          className="object-cover rounded-lg"
-                          sizes="(max-width: 80px) 100vw, 80px"
+                          width={80}
+                          height={80} 
+                          src={item.imagen || '/placeholder.jpg'} 
+                          alt={item.nombre} 
+                          className="w-full h-full object-cover"
                         />
                       </div>
-                      <div className="flex-1">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="font-semibold text-gray-800">{item.nombre}</h3>
-                            <p className="text-rose-600 font-medium">${item.precio}</p>
-                          </div>
+                      
+                      {/* Detalles del producto */}
+                      <div className="flex-grow">
+                        <h4 className="font-medium text-rose-900">{item.nombre}</h4>
+                        <p className="text-rose-600 font-semibold">${Number(item.precio)}</p>
+                        
+                        {/* Controles de cantidad */}
+                        <div className="flex items-center mt-2 gap-2">
                           <button 
-                            onClick={() => eliminarDelCarrito(item.id)} 
-                            className="text-gray-400 hover:text-red-500 transition-colors p-1"
-                          >
-                            <X size={18} />
-                          </button>
-                        </div>
-                        <div className="flex items-center gap-3 mt-2">
-                          <button 
-                            className="p-1.5 bg-rose-100 text-rose-600 rounded-full hover:bg-rose-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" 
                             onClick={() => actualizarCantidad(item.id, (item.cantidad || 1) - 1)}
-                            disabled={(item.cantidad || 1) <= 1}
+                            className="text-gray-400 hover:text-rose-500"
                           >
                             <Minus size={16} />
                           </button>
-                          <span className="font-medium text-gray-700 min-w-[24px] text-center">
-                            {item.cantidad || 1}
-                          </span>
+                          <span className="text-gray-600">{item.cantidad || 1}</span>
                           <button 
-                            className="p-1.5 bg-rose-100 text-rose-600 rounded-full hover:bg-rose-200 transition-colors" 
                             onClick={() => actualizarCantidad(item.id, (item.cantidad || 1) + 1)}
+                            className="text-gray-400 hover:text-rose-500"
                           >
                             <Plus size={16} />
                           </button>
-                          <span className="ml-auto text-sm text-gray-600">
-                            ${((item.cantidad || 1) * item.precio).toFixed(2)}
-                          </span>
+                          
+                          <button 
+                            onClick={() => eliminarDelCarrito(item.id)}
+                            className="text-gray-400 hover:text-rose-500 ml-auto"
+                          >
+                            <X size={16} />
+                          </button>
                         </div>
                       </div>
-                    </div>
+                    </li>
                   ))}
-                </div>
-
-                <div className="border-t border-gray-200 pt-4 space-y-4">
-                  <div className="flex justify-between items-center text-lg">
-                    <span className="font-semibold text-gray-700">Total</span>
-                    <span className="font-bold text-rose-600">${total}</span>
+                </ul>
+                
+                {/* Resumen */}
+                <div className="mt-6 bg-rose-50 p-4 rounded-lg">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-gray-600">Subtotal</span>
+                    <span className="font-semibold">${total}</span>
                   </div>
-                  <button 
-                    className="w-full py-3 px-4 bg-rose-600 text-white rounded-lg font-semibold hover:bg-rose-700 transition-colors shadow-sm hover:shadow-md flex items-center justify-center gap-2"
-                    onClick={() => {
-                      router.push('/checkout/ticket');
-                      setCarritoAbierto(false);
-                    }}
-                  >
-                    <ShoppingCart size={20} />
-                    Finalizar Compra
-                  </button>
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-gray-600">Envío</span>
+                    <span className="font-semibold">Gratis</span>
+                  </div>
+                  <div className="border-t border-rose-200 mt-2 pt-2">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-rose-900">Total</span>
+                      <span className="font-bold text-lg text-rose-900">${total}</span>
+                    </div>
+                  </div>
                 </div>
               </>
             )}
           </div>
-        </aside>
+          
+          {/* Pie del panel */}
+          {carrito.length > 0 && (
+            <div className="p-4 border-t border-gray-200">
+              <button 
+                onClick={() => {
+                  if (!session) {
+                    router.push('/auth/login');
+                    return;
+                  }
+                  router.push('/checkout/ticket');
+                  setCarritoAbierto(false);
+                }}
+                className="w-full bg-gradient-to-r from-pink-600 to-purple-600 text-white py-3 rounded-full font-medium hover:shadow-lg transition-all flex items-center justify-center gap-2"
+              >
+                <CreditCard size={20} />
+                Proceder al Pago
+              </button>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

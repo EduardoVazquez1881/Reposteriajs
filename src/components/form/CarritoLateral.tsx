@@ -24,7 +24,7 @@ export default function CarritoLateral({ isOpen, setIsOpen }: CarritoLateralProp
       router.push('/auth/login');
       return;
     }
-    setIsOpen(true);
+    router.push('/checkout/ticket');
   };
   
   const total = carrito.reduce((sum, item) => sum + (Number(item.precio) * (item.cantidad || 1)), 0);

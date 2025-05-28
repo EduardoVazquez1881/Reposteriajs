@@ -298,34 +298,32 @@ export default function DulcesDelicias() {
           {/* Header con título y carrito */}
           <div className='flex justify-between items-center mb-8'>
             <h1 className='text-3xl font-bold text-rose-900'>Nuestros Deliciosos Pasteles</h1>
-            <div className='flex items-center gap-4'>
-              <div className='relative'>
-                <button 
-                  onClick={() => setFavoritosAbierto(true)}
-                  className='bg-rose-100 p-2 rounded-full text-rose-600 hover:bg-rose-200 transition-colors'
-                >
-                  <Heart size={20} className={favoritos.length > 0 ? 'fill-current' : ''} />
-                  {favoritos.length > 0 && (
-                    <span className='absolute -top-1 -right-1 bg-pink-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center'>
-                      {favoritos.length}
-                    </span>
-                  )}
-                </button>
-              </div>
-              <div className='relative'>
-                <button 
-                  onClick={() => setCarritoAbierto(true)}
-                  className='bg-rose-100 p-2 rounded-full text-rose-600 hover:bg-rose-200 transition-colors'
-                >
-                  <ShoppingBag size={20} />
-                  {carrito.length > 0 && (
-                    <span className='absolute -top-1 -right-1 bg-pink-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center'>
-                      {carrito.reduce((total, item) => total + (item.cantidad || 1), 0)}
-                    </span>
-                  )}
-                </button>
-              </div>
-            </div>
+          </div>
+          
+          {/* Botones fijos de Favoritos y Carrito */}
+          <div className='fixed top-6 right-6 flex gap-3 z-40'>
+            <button 
+              onClick={() => setFavoritosAbierto(true)}
+              className='bg-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 text-rose-600 hover:bg-rose-50 relative'
+            >
+              <Heart size={24} className={favoritos.length > 0 ? 'fill-current' : ''} />
+              {favoritos.length > 0 && (
+                <span className='absolute -top-2 -right-2 bg-pink-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center'>
+                  {favoritos.length}
+                </span>
+              )}
+            </button>
+            <button 
+              onClick={() => setCarritoAbierto(true)}
+              className='bg-white p-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-300 text-rose-600 hover:bg-rose-50 relative'
+            >
+              <ShoppingBag size={24} />
+              {carrito.length > 0 && (
+                <span className='absolute -top-2 -right-2 bg-pink-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center'>
+                  {carrito.reduce((total, item) => total + (item.cantidad || 1), 0)}
+                </span>
+              )}
+            </button>
           </div>
           
           {/* Sección de búsqueda y filtros */}
