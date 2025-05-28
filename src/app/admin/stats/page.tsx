@@ -1,55 +1,322 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Sidebar from '@/components/form/sidebar';
-import { DollarSign, ShoppingCart, Users, Package, Star } from 'lucide-react';
+import { DollarSign, ShoppingCart, Users, Package, TrendingUp, RefreshCw } from 'lucide-react';
+import { pedidoService } from '@/services/pedidoService';
+import { toast } from 'sonner';
+
+interface Order {
+  id: number;
+  fk_usuario: number;
+  total: number;
+  direccion: string;
+  telefono: string;
+  notas: string;
+  estado: string;
+  fecha: string;
+  fechaEntrega: string | null;
+  USER: {
+    id: number;
+    username: string;
+    email: string;
+    telefono: string;
+  };
+  pedido_pastel: Array<{
+    id: number;
+    total: number;
+    carrito_items: {
+      id: number;
+      cantidad: number;
+      precio_unitario: number;
+      pastel: {
+        id: number;
+        nombre: string;
+        precio: number;
+        imagen: string;
+      };
+    };
+  }>;
+  pedido_personalizado: Array<{
+    id: number;
+    total: number;
+    imagen_referencia: string | null;
+    carrito_personalizado: {
+      id: number;
+      cantidad: number;
+      precio_unitario: number;
+      personalizado: {
+        id: number;
+        nombre: string;
+        descripcion: string;
+        imagen_referencia: string;
+      };
+    };
+  }>;
+  pago: Array<{
+    id: number;
+    monto: number;
+    metodo: string;
+    estado: string;
+    fecha: string;
+  }>;
+}
 
 const Estadisticas = () => {
-  // Datos de ejemplo
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [timeRange, setTimeRange] = useState('7d');
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+
+  useEffect(() => {
+    cargarPedidos();
+  }, [timeRange]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      cargarPedidos();
+    }, 30000); // 30 segundos
+
+    return () => clearInterval(interval);
+  }, []);
+
+  const cargarPedidos = async () => {
+    try {
+      const pedidos = await pedidoService.getAllPedidos();
+
+      // Asegurarnos de que el campo 'total' sea numérico
+      const pedidosNumericos = pedidos.map((pedido: Order) => ({
+        ...pedido,
+        total: Number(pedido.total) || 0,
+      }));
+
+      setOrders(pedidosNumericos);
+      setLastUpdate(new Date());
+    } catch (error) {
+      console.error('Error al cargar pedidos:', error);
+      toast.error('Error al cargar los datos');
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('es-CO', {
+      style: 'currency',
+      currency: 'COP',
+      minimumFractionDigits: 0
+    }).format(amount);
+  };
+
+  const formatDate = (dateString: string | null) => {
+    if (!dateString) return 'Por definir';
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-CO', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const getFilteredOrders = () => {
+    const now = new Date();
+    const filtered = orders.filter(order => order.estado === 'completado');
+    
+    switch (timeRange) {
+      case '7dias':
+        return filtered.filter(order => {
+          const orderDate = new Date(order.fecha);
+          const diffTime = Math.abs(now.getTime() - orderDate.getTime());
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return diffDays <= 7;
+        });
+      case '30dias':
+        return filtered.filter(order => {
+          const orderDate = new Date(order.fecha);
+          const diffTime = Math.abs(now.getTime() - orderDate.getTime());
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return diffDays <= 30;
+        });
+      case '90dias':
+        return filtered.filter(order => {
+          const orderDate = new Date(order.fecha);
+          const diffTime = Math.abs(now.getTime() - orderDate.getTime());
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          return diffDays <= 90;
+        });
+      case 'año':
+        return filtered.filter(order => {
+          const orderDate = new Date(order.fecha);
+          return orderDate.getFullYear() === now.getFullYear();
+        });
+      default:
+        return filtered;
+    }
+  };
+
+  const exportToTxt = async () => {
+    const completedOrders = getFilteredOrders();
+    if (completedOrders.length === 0) {
+      toast.error('No hay ventas completadas para exportar');
+      return;
+    }
+
+    // Confirmar antes de exportar y eliminar
+    if (!confirm(`¿Está seguro de que desea exportar y eliminar ${completedOrders.length} pedidos completados? Esta acción no se puede deshacer.`)) {
+      return;
+    }
+
+    let content = 'REPORTE DE VENTAS COMPLETADAS\n';
+    content += '=============================\n\n';
+    content += `Fecha de generación: ${new Date().toLocaleString('es-CO')}\n`;
+    content += `Período: ${timeRange === '7dias' ? 'Últimos 7 días' : 
+                          timeRange === '30dias' ? 'Últimos 30 días' :
+                          timeRange === '90dias' ? 'Últimos 90 días' : 'Este año'}\n\n`;
+
+    let totalVentas = 0;
+    let totalProductos = 0;
+
+    completedOrders.forEach(order => {
+      content += `Pedido #${order.id}\n`;
+      content += `Fecha: ${formatDate(order.fecha)}\n`;
+      content += `Cliente: ${order.USER?.username || 'N/A'}\n`;
+      content += `Email: ${order.USER?.email || 'N/A'}\n`;
+      content += `Total: ${formatCurrency(order.total)}\n`;
+      
+      if (order.pedido_pastel.length > 0) {
+        content += '\nProductos:\n';
+        order.pedido_pastel.forEach(pedido => {
+          content += `- ${pedido.carrito_items.pastel.nombre}\n`;
+          content += `  Cantidad: ${pedido.carrito_items.cantidad}\n`;
+          content += `  Precio unitario: ${formatCurrency(pedido.carrito_items.precio_unitario)}\n`;
+          content += `  Subtotal: ${formatCurrency(pedido.total)}\n`;
+          totalProductos += pedido.carrito_items.cantidad;
+        });
+      }
+
+      if (order.pedido_personalizado.length > 0) {
+        content += '\nPedidos Personalizados:\n';
+        order.pedido_personalizado.forEach(pedido => {
+          content += `- ${pedido.carrito_personalizado.personalizado.nombre}\n`;
+          content += `  Descripción: ${pedido.carrito_personalizado.personalizado.descripcion}\n`;
+          content += `  Cantidad: ${pedido.carrito_personalizado.cantidad}\n`;
+          content += `  Precio unitario: ${formatCurrency(pedido.carrito_personalizado.precio_unitario)}\n`;
+          content += `  Subtotal: ${formatCurrency(pedido.total)}\n`;
+          totalProductos += pedido.carrito_personalizado.cantidad;
+        });
+      }
+
+      content += '\n------------------------\n\n';
+      totalVentas += order.total;
+    });
+
+    content += `RESUMEN\n`;
+    content += `========\n`;
+    content += `Total de pedidos: ${completedOrders.length}\n`;
+    content += `Total de productos vendidos: ${totalProductos}\n`;
+    content += `Total de ventas: ${formatCurrency(totalVentas)}\n`;
+
+    try {
+      // Exportar el archivo
+      const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `ventas_completadas_${new Date().toISOString().split('T')[0]}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      // Eliminar los pedidos completados
+      const deletePromises = completedOrders.map(order => 
+        pedidoService.deletePedido(order.id)
+      );
+      await Promise.all(deletePromises);
+
+      // Recargar los pedidos para actualizar la vista
+      await cargarPedidos();
+      
+      toast.success(`Se exportaron y eliminaron ${completedOrders.length} pedidos completados correctamente`);
+    } catch (error) {
+      console.error('Error al exportar o eliminar pedidos:', error);
+      toast.error('Error al procesar los pedidos. Por favor, intente nuevamente.');
+    }
+  };
+
+  const completedOrders = getFilteredOrders();
+
+  // Calculamos el total de ventas sumando el 'total' de *todos* los pedidos completados en el rango de tiempo seleccionado
+  const totalVentas = completedOrders.reduce((sum, order) => sum + order.total, 0);
+  
+  const totalProductos = completedOrders.reduce((sum, order) => {
+    const pasteles = order.pedido_pastel.reduce((acc, pedido) => acc + pedido.carrito_items.cantidad, 0);
+    const personalizados = order.pedido_personalizado.reduce((acc, pedido) => acc + pedido.carrito_personalizado.cantidad, 0);
+    return sum + pasteles + personalizados;
+  }, 0);
+
   const metrics = [
     {
       title: 'Ventas Totales',
-      value: '$45,250.00',
+      value: formatCurrency(totalVentas),
       change: '+12.5%',
       icon: DollarSign,
       color: 'bg-green-500'
     },
     {
-      title: 'Pedidos',
-      value: '156',
+      title: 'Pedidos Completados',
+      value: completedOrders.length.toString(),
       change: '+8.2%',
       icon: ShoppingCart,
       color: 'bg-blue-500'
     },
     {
-      title: 'Clientes',
-      value: '89',
+      title: 'Clientes Únicos',
+      value: new Set(completedOrders.map(order => order.USER?.id)).size.toString(),
       change: '+5.7%',
       icon: Users,
       color: 'bg-purple-500'
     },
     {
       title: 'Productos Vendidos',
-      value: '234',
+      value: totalProductos.toString(),
       change: '+15.3%',
       icon: Package,
       color: 'bg-orange-500'
     }
   ];
 
-  const topProducts = [
-    { name: 'Pastel de Chocolate', sales: 45, revenue: 20250 },
-    { name: 'Red Velvet', sales: 38, revenue: 19000 },
-    { name: 'Tres Leches', sales: 32, revenue: 12800 },
-    { name: 'Cupcakes (6)', sales: 28, revenue: 9800 }
-  ];
+  const topProducts = completedOrders.reduce((acc, order) => {
+    // Procesar pasteles
+    order.pedido_pastel.forEach(pedido => {
+      const nombre = pedido.carrito_items.pastel.nombre;
+      const ventas = pedido.carrito_items.cantidad;
+      const revenue = pedido.total;
+      
+      if (!acc[nombre]) {
+        acc[nombre] = { sales: 0, revenue: 0 };
+      }
+      acc[nombre].sales += ventas;
+      acc[nombre].revenue += revenue;
+    });
 
-  const recentActivity = [
-    { type: 'venta', description: 'Nueva venta de Pastel de Chocolate', amount: 450, time: '5 min' },
-    { type: 'pedido', description: 'Pedido personalizado de Red Velvet', amount: 800, time: '15 min' },
-    { type: 'cliente', description: 'Nuevo cliente registrado', time: '30 min' },
-    { type: 'review', description: 'Nueva reseña de 5 estrellas', time: '1 hora' }
-  ];
+    // Procesar pedidos personalizados
+    order.pedido_personalizado.forEach(pedido => {
+      const nombre = pedido.carrito_personalizado.personalizado.nombre;
+      const ventas = pedido.carrito_personalizado.cantidad;
+      const revenue = pedido.total;
+      
+      if (!acc[nombre]) {
+        acc[nombre] = { sales: 0, revenue: 0 };
+      }
+      acc[nombre].sales += ventas;
+      acc[nombre].revenue += revenue;
+    });
+
+    return acc;
+  }, {} as Record<string, { sales: number; revenue: number }>);
+
+  const topProductsArray = Object.entries(topProducts)
+    .map(([name, data]) => ({ name, ...data }))
+    .sort((a, b) => b.sales - a.sales)
+    .slice(0, 4);
 
   return (
     <div className="flex min-h-screen bg-rose-50">
@@ -57,18 +324,38 @@ const Estadisticas = () => {
       <div className="flex-1 p-8">
         <div className="max-w-7xl mx-auto">
           <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-rose-700">
-              Estadísticas
-            </h1>
+            <div>
+              <h1 className="text-3xl font-bold text-rose-700">
+                Estadísticas
+              </h1>
+              <p className="text-sm text-gray-500 mt-1">
+                Última actualización: {lastUpdate.toLocaleTimeString('es-CO')}
+              </p>
+            </div>
             <div className="flex gap-4">
-              <select className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500">
-                <option>Últimos 7 días</option>
-                <option>Últimos 30 días</option>
-                <option>Últimos 90 días</option>
-                <option>Este año</option>
+              <select 
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-500"
+                value={timeRange}
+                onChange={(e) => setTimeRange(e.target.value)}
+              >
+                <option value="7dias">Últimos 7 días</option>
+                <option value="30dias">Últimos 30 días</option>
+                <option value="90dias">Últimos 90 días</option>
+                <option value="año">Este año</option>
               </select>
-              <button className="bg-rose-600 text-white px-4 py-2 rounded-lg hover:bg-rose-700 transition-colors">
+              <button 
+                onClick={exportToTxt}
+                className="bg-rose-600 text-white px-4 py-2 rounded-lg hover:bg-rose-700 transition-colors flex items-center gap-2"
+              >
+                <TrendingUp size={20} />
                 Exportar
+              </button>
+              <button
+                onClick={() => cargarPedidos()}
+                className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+                title="Actualizar datos"
+              >
+                <RefreshCw size={20} />
               </button>
             </div>
           </div>
@@ -105,7 +392,7 @@ const Estadisticas = () => {
                 Productos Más Vendidos
               </h2>
               <div className="space-y-4">
-                {topProducts.map((product, index) => (
+                {topProductsArray.map((product, index) => (
                   <div
                     key={index}
                     className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
@@ -120,7 +407,7 @@ const Estadisticas = () => {
                     </div>
                     <div className="text-right">
                       <p className="font-semibold text-gray-800">
-                        ${product.revenue.toLocaleString()}
+                        {formatCurrency(product.revenue)}
                       </p>
                       <p className="text-sm text-gray-500">
                         Ingresos
@@ -134,37 +421,27 @@ const Estadisticas = () => {
             {/* Actividad Reciente */}
             <div className="bg-white rounded-xl shadow-lg p-6">
               <h2 className="text-xl font-semibold text-gray-800 mb-6">
-                Actividad Reciente
+                Últimas Ventas Completadas
               </h2>
               <div className="space-y-4">
-                {recentActivity.map((activity, index) => (
+                {completedOrders.slice(0, 5).map((order) => (
                   <div
-                    key={index}
+                    key={order.id}
                     className="flex items-start gap-4 p-4 bg-gray-50 rounded-lg"
                   >
-                    <div className={`p-2 rounded-lg ${
-                      activity.type === 'venta' ? 'bg-green-100' :
-                      activity.type === 'pedido' ? 'bg-blue-100' :
-                      activity.type === 'cliente' ? 'bg-purple-100' :
-                      'bg-yellow-100'
-                    }`}>
-                      {activity.type === 'venta' && <DollarSign className="w-5 h-5 text-green-600" />}
-                      {activity.type === 'pedido' && <ShoppingCart className="w-5 h-5 text-blue-600" />}
-                      {activity.type === 'cliente' && <Users className="w-5 h-5 text-purple-600" />}
-                      {activity.type === 'review' && <Star className="w-5 h-5 text-yellow-600" />}
+                    <div className="p-2 rounded-lg bg-green-100">
+                      <DollarSign className="w-5 h-5 text-green-600" />
                     </div>
                     <div className="flex-1">
                       <p className="text-gray-800">
-                        {activity.description}
+                        Pedido #{order.id} - {order.USER?.username || 'Cliente'}
                       </p>
                       <div className="flex justify-between items-center mt-1">
-                        {activity.amount && (
-                          <span className="text-sm font-medium text-gray-600">
-                            ${activity.amount}
-                          </span>
-                        )}
+                        <span className="text-sm font-medium text-gray-600">
+                          {formatCurrency(order.total)}
+                        </span>
                         <span className="text-sm text-gray-500">
-                          Hace {activity.time}
+                          {formatDate(order.fecha)}
                         </span>
                       </div>
                     </div>

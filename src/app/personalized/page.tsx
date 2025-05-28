@@ -13,7 +13,6 @@ import {
   Eye,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { pedidoPersonalizadoService } from '@/services/pedidoPersonalizadoService';
 import { Button } from '@/components/ui/button';
 import { pedidoService } from '@/services/pedidoService';
 import { toast } from 'sonner';
@@ -39,22 +38,34 @@ interface Step {
 }
 
 interface PedidoPersonalizado {
-  id?: string;
-  clienteId: string;
-  descripcion: string;
-  fechaEntrega: Date;
-  estado: 'pendiente' | 'en_proceso' | 'completado' | 'cancelado';
-  precio: number;
-  productos: Array<{
-    nombre: string;
-    descripcion: string;
-    tipo: string;
-    stock: number;
-    unidad: string;
-    precio: number;
-    destacado: boolean;
-    disponible: boolean;
+  id: number;
+  estado: string;
+  fecha: string | null;
+  direccion: string | null;
+  total: number;
+  instrucciones?: string;
+  descripcion?: string;
+  pedido_pastel: Array<{
+    id: number;
+    carrito_items: Array<{
+      id: number;
+      cantidad: number;
+      precio_unitario: number;
+      pastel?: {
+        nombre: string;
+      };
+    }>;
   }>;
+}
+
+interface ErrorResponse {
+  response?: {
+    status?: number;
+    data?: {
+      message?: string;
+    };
+  };
+  message?: string;
 }
 
 const App: React.FC = () => {
@@ -70,7 +81,6 @@ const App: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [pedidoEnviado, setPedidoEnviado] = useState<PedidoPersonalizado | null>(null);
   const [mostrarDetalles, setMostrarDetalles] = useState(false);
-  const [misPedidos, setMisPedidos] = useState<any[]>([]);
 
   // Datos con tipado correcto
   const sizes: CakeOption[] = [
@@ -188,49 +198,48 @@ const App: React.FC = () => {
       }
 
       const pedidoData = {
-        usuarioId: parseInt(session.user.id),
+        fk_usuario: parseInt(session.user.id),
         total: calcularPrecioTotal(),
-        direccionEnvio: 'Dirección por confirmar',
-        instrucciones: `Pastel personalizado: ${selectedSize} ${selectedLayers} pisos, ${selectedCake} con ${selectedFilling}, ${selectedFrosting}. Restricciones: ${restrictions.join(', ') || 'Ninguna'}`,
-        items: [{
-          pastelId: 1, // ID temporal
+        direccion: 'Dirección por confirmar',
+        notas: `Pastel personalizado: ${selectedSize} ${selectedLayers} pisos, ${selectedCake} con ${selectedFilling}, ${selectedFrosting}. Restricciones: ${restrictions.join(', ') || 'Ninguna'}`,
+        carrito_items: [],
+        carrito_personalizado: [{
+          id: 1, // ID temporal para el carrito personalizado
           cantidad: 1,
-          precio: calcularPrecioTotal()
+          precio_unitario: calcularPrecioTotal(),
+          imagen_referencia: customImage ? URL.createObjectURL(customImage) : undefined
         }]
       };
       const response = await pedidoService.createPedido(pedidoData);
       if (!response) throw new Error('No se recibió respuesta del servidor');
-      setMisPedidos((prev) => [...prev, response]);
       setPedidoEnviado(response);
       toast.success('¡Pedido personalizado realizado con éxito!');
-      // Redirigir a la página de estado del pedido
       router.push(`/personalized/estado/${response.id}`);
-    } catch (error: any) {
-      console.error('Error al crear el pedido:', error);
+    } catch (error: unknown) {
+      const err = error as ErrorResponse;
+      console.error('Error al crear el pedido:', err);
       
-      // Manejar diferentes tipos de errores
-      if (error.response?.status === 400) {
+      if (err.response?.status === 400) {
         toast.error('Faltan datos requeridos en el pedido');
-      } else if (error.response?.status === 401) {
+      } else if (err.response?.status === 401) {
         toast.error('Debes iniciar sesión para realizar un pedido');
-      } else if (error.response?.status === 500) {
+      } else if (err.response?.status === 500) {
         toast.error('Error en el servidor. Por favor, intenta más tarde');
       } else {
-        toast.error('Hubo un error al procesar tu pedido. Por favor, intenta nuevamente');
+        toast.error(err.message || 'Hubo un error al procesar tu pedido. Por favor, intenta nuevamente');
       }
     }
   };
 
-  const cancelarPedido = async (): Promise<void> => {
-    if (pedidoEnviado) {
-      try {
-        // Aquí iría la lógica para cancelar el pedido en la base de datos
-        setPedidoEnviado({ ...pedidoEnviado, estado: 'cancelado' });
-        alert('Pedido cancelado exitosamente.');
-      } catch (error) {
-        console.error('Error al cancelar el pedido:', error);
-        alert('Hubo un error al cancelar el pedido.');
-      }
+  const handleCancelarPedido = async (pedidoId: number) => {
+    try {
+      await pedidoService.updateEstadoPedido(pedidoId, 'cancelado');
+      toast.success('Pedido cancelado exitosamente');
+      // Actualizar el estado local si es necesario
+    } catch (error: unknown) {
+      const err = error as ErrorResponse;
+      console.error('Error al cancelar pedido:', err);
+      toast.error(err.message || 'Error al cancelar el pedido');
     }
   };
 
@@ -514,11 +523,11 @@ const App: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Precio Total:</span>
-                    <span className="font-medium text-rose-600">${pedidoEnviado.precio}</span>
+                    <span className="font-medium text-rose-600">${pedidoEnviado.total}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-gray-600">Fecha de Entrega:</span>
-                    <span className="font-medium">{new Date(pedidoEnviado.fechaEntrega).toLocaleDateString()}</span>
+                    <span className="font-medium">{pedidoEnviado.fecha ? new Date(pedidoEnviado.fecha).toLocaleDateString() : 'Por definir'}</span>
                   </div>
                   {mostrarDetalles && (
                     <div className="mt-4 p-4 bg-gray-50 rounded-md">
@@ -544,7 +553,7 @@ const App: React.FC = () => {
                           Finalizar Pedido
                         </Button>
                         <Button
-                          onClick={cancelarPedido}
+                          onClick={() => handleCancelarPedido(pedidoEnviado.id)}
                           className="flex items-center gap-2 bg-red-600 text-white hover:bg-red-700"
                         >
                           <XCircle size={18} />

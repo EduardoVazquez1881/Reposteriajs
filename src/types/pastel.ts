@@ -1,6 +1,5 @@
-
 export interface Pastel {
-  id: number;
+  id: string;
   nombre: string;
   descripcion: string;
   precio: number;
@@ -12,5 +11,9 @@ export interface Pastel {
   stock?: number;              
   disponible?: boolean;     
   fecha_creacion?: string;    
-  deleted?: boolean;          
+  deleted?: boolean;
+  tipo?: string;
+  unidad?: string;
 }
+
+export type Favorito = Pastel;

@@ -9,23 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Package, AlertTriangle, Plus, Search, Pencil, ChefHat, ShoppingCart } from "lucide-react";
+import { Package, AlertTriangle, Plus, Search, Pencil, ChefHat } from "lucide-react";
 import { ProductoDialog } from "@/components/form/ProductoDialog";
 import { useSearchParams } from "next/navigation";
 import IngredienteDialog from '@/components/IngredienteDialog';
-
-interface Producto {
-  id: string;
-  nombre: string;
-  descripcion: string;
-  tipo: string;
-  precio: number;
-  stock: number;
-  unidad: string;
-  imagen?: string;
-  destacado: boolean;
-  disponible: boolean;
-}
+import { productoService, Producto } from '@/services/productoService';
+import { toast } from 'sonner';
 
 interface Ingrediente {
   id: string;
@@ -34,16 +23,6 @@ interface Ingrediente {
   unidad: string;
   stockMinimo: number;
   proveedor: string;
-}
-
-interface PedidoPersonalizado {
-  id: string;
-  clienteId: string;
-  descripcion: string;
-  fechaEntrega: Date;
-  estado: string;
-  precio: number;
-  productos: Producto[];
 }
 
 export default function InventarioPage() {
@@ -59,8 +38,6 @@ export default function InventarioPage() {
   const [filterType, setFilterType] = useState("todos");
   const [productos, setProductos] = useState<Producto[]>([]);
   const [ingredientes, setIngredientes] = useState<Ingrediente[]>([]);
-  const [pedidos, setPedidos] = useState<PedidoPersonalizado[]>([]);
-  // const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedProducto, setSelectedProducto] = useState<Producto | null>(null);
@@ -73,34 +50,8 @@ export default function InventarioPage() {
 
   const cargarDatos = async () => {
     try {
-      // Aquí irían las llamadas a la API para cargar los datos
-      // Por ahora usaremos datos de ejemplo
-      setProductos([
-        {
-          id: "1",
-          nombre: "Pastel de Chocolate",
-          descripcion: "Delicioso pastel de chocolate con cobertura",
-          tipo: "pastel",
-          stock: 5,
-          unidad: "unidad",
-          precio: 450.00,
-          imagen: "/pastel-chocolate.jpg",
-          destacado: true,
-          disponible: true
-        },
-        {
-          id: "2",
-          nombre: "Harina",
-          descripcion: "Harina de trigo para repostería",
-          tipo: "materia_prima",
-          stock: 10,
-          unidad: "kg",
-          precio: 45.00,
-          imagen: "/harina.jpg",
-          destacado: false,
-          disponible: true
-        }
-      ]);
+      const productosCargados = await productoService.getProductos();
+      setProductos(productosCargados);
 
       setIngredientes([
         {
@@ -145,48 +96,10 @@ export default function InventarioPage() {
         }
       ]);
 
-      setPedidos([
-        {
-          id: "1",
-          clienteId: "cliente1",
-          descripcion: "Pastel de cumpleaños con temática de superhéroes",
-          fechaEntrega: new Date("2024-03-20"),
-          estado: "pendiente",
-          precio: 1200.00,
-          productos: [
-            {
-              id: "1",
-              nombre: "Pastel de Chocolate",
-              descripcion: "Delicioso pastel de chocolate con cobertura",
-              tipo: "pastel",
-              stock: 1,
-              unidad: "unidad",
-              precio: 450.00,
-              destacado: true,
-              disponible: true
-            }
-          ]
-        }
-      ]);
-
-      // setLoading(false);
     } catch {
       setError("Error al cargar los datos");
-      // setLoading(false);
     }
   };
-  const handleCreateProducto = async (data: Producto) => {
-    try {
-      // Aquí iría la llamada a la API para crear el producto
-      console.log("Crear producto:", data);
-      // Por ahora solo actualizamos el estado local
-      setProductos([...productos, data]);
-      setDialogOpen(false);
-    } catch {
-      setError("Error al crear el producto");
-    }
-  };
-
 
   const handleOpenDialog = (producto: Producto | null = null) => {
     setSelectedProducto(producto);
@@ -198,17 +111,24 @@ export default function InventarioPage() {
     setDialogOpen(false);
   };
 
-  const handleSaveProducto = (producto: Producto) => {
-    if (selectedProducto) {
-      // Editar producto existente
-      setProductos(productos.map(p => p.id === producto.id ? producto : p));
-    } else {
-      // Crear nuevo producto
-      handleCreateProducto(producto);
+  const handleSaveProducto = async (producto: Producto) => {
+    try {
+      if (selectedProducto) {
+        await productoService.updateProducto(producto);
+        toast.success('Producto actualizado con éxito');
+      } else {
+        const productoParaCrear = { ...producto };
+        delete (productoParaCrear as Partial<Producto>).id;
+        await productoService.createProducto(productoParaCrear as Omit<Producto, 'id'>);
+        toast.success('Producto creado con éxito');
+      }
+      await cargarDatos();
+      handleCloseDialog();
+    } catch (error) {
+      console.error('Error al guardar el producto:', error);
+      toast.error('Error al guardar el producto');
     }
-    handleCloseDialog();
   };
-
 
   const handleEditIngrediente = (ingrediente: Ingrediente) => {
     setSelectedIngrediente(ingrediente);
@@ -221,7 +141,6 @@ export default function InventarioPage() {
   };
 
   const handleSaveIngrediente = (ingrediente: Ingrediente) => {
-    // Lógica para guardar el ingrediente (reemplazar con llamada a API)
     setIngredientes(ingredientes.map(i => i.id === ingrediente.id ? ingrediente : i));
     handleCloseIngredienteDialog();
   };
@@ -235,10 +154,6 @@ export default function InventarioPage() {
 
   const filteredIngredientes = ingredientes.filter(ingrediente => 
     ingrediente.nombre.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredPedidos = pedidos.filter(pedido => 
-    pedido.descripcion.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -256,10 +171,6 @@ export default function InventarioPage() {
             <TabsTrigger value="ingredientes">
               <ChefHat className="w-4 h-4 mr-2" />
               Ingredientes
-            </TabsTrigger>
-            <TabsTrigger value="pedidos">
-              <ShoppingCart className="w-4 h-4 mr-2" />
-              Pedidos Personalizados
             </TabsTrigger>
           </TabsList>
 
@@ -402,72 +313,6 @@ export default function InventarioPage() {
                           >
                             <Pencil className="w-4 h-4" />
                           </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="pedidos" className="space-y-4">
-            <div className="flex justify-between items-center">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <Input
-                  placeholder="Buscar pedidos..."
-                  className="pl-10"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Nuevo Pedido
-              </Button>
-            </div>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Lista de Pedidos Personalizados</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Descripción</TableHead>
-                      <TableHead>Fecha Entrega</TableHead>
-                      <TableHead>Estado</TableHead>
-                      <TableHead>Precio</TableHead>
-                      <TableHead>Productos</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredPedidos.map((pedido) => (
-                      <TableRow key={pedido.id}>
-                        <TableCell>{pedido.descripcion}</TableCell>
-                        <TableCell>{pedido.fechaEntrega.toLocaleDateString()}</TableCell>
-                        <TableCell>
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            pedido.estado === 'pendiente' 
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : pedido.estado === 'en_proceso'
-                              ? 'bg-blue-100 text-blue-800'
-                              : pedido.estado === 'completado'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-red-100 text-red-800'
-                          }`}>
-                            {pedido.estado.charAt(0).toUpperCase() + pedido.estado.slice(1)}
-                          </span>
-                        </TableCell>
-                        <TableCell>${pedido.precio}</TableCell>
-                        <TableCell>
-                          <ul className="list-disc list-inside">
-                            {pedido.productos.map(producto => (
-                              <li key={producto.id}>{producto.nombre}</li>
-                            ))}
-                          </ul>
                         </TableCell>
                       </TableRow>
                     ))}

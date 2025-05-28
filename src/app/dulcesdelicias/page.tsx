@@ -8,88 +8,102 @@ import CarritoLateral from '@/components/form/CarritoLateral';
 import { useCarrito } from '@/context/CarritoContext';
 import FavoritosLateral from '@/components/form/FavoritosLateral';
 import CheckoutForm from '@/components/form/CheckoutForm';
+import { productoService } from '@/services/productoService';
+import { toast } from 'sonner';
+import type { Pastel } from '@/types/pastel';
 
 // Datos simulados basados en tu esquema de base de datos
-const pastelesMock = [
+const pastelesMock: Pastel[] = [
   {
-    id: 1,
+    id: "1",
     nombre: 'Pastel de Chocolate',
     descripcion: 'El sabor profundo y la textura suave del chocolate se combinan para crear un pastel irresistible, perfecto para cualquier ocasión.',
     precio: 300,
-    imagen: '/images/chocolate.jpg',  // Cambiado a ruta local
+    imagen: '/images/chocolate.jpg',
     destacado: true,
     etiquetas: ['Chocolate', 'Favoritos'],
-    calificacion: 4.8
+    calificacion: 4.8,
+    tipo: 'pastel',
+    stock: 10,
+    disponible: true,
+    unidad: 'unidad'
   },
   {
-    id: 2,
+    id: "2",
     nombre: 'Tarta de Fresas',
     descripcion: 'Fresas frescas sobre una base de crema pastelera y masa quebrada. Una explosión de sabor frutal.',
     precio: 280,
-    imagen: '/images/fresas.jpeg',  // Cambiado a ruta local
+    imagen: '/images/fresas.jpeg',
     destacado: false,
     etiquetas: ['Frutales', 'Verano'],
-    calificacion: 4.5
+    calificacion: 4.5,
+    tipo: 'pastel',
+    stock: 8,
+    disponible: true,
+    unidad: 'unidad'
   },
   {
-    id: 3,
+    id: "3",
     nombre: 'Cheesecake de Frutos Rojos',
     descripcion: 'La cremosidad del cheesecake se combina con la frescura de los frutos rojos para crear un postre irresistible.',
     precio: 320,
-    imagen: '/images/frutas.jpg',  // Cambiado a ruta local
+    imagen: '/images/frutas.jpg',
     destacado: true,
     etiquetas: ['Frutales', 'Favoritos'],
-    calificacion: 4.9
+    calificacion: 4.9,
+    tipo: 'pastel',
+    stock: 12,
+    disponible: true,
+    unidad: 'unidad'
   },
   {
-    id: 4,
+    id: "4",
     nombre: 'Pastel de Zanahoria',
     descripcion: 'Un clásico reinventado con zanahorias frescas y un delicioso frosting de queso crema.',
     precio: 290,
-    imagen: '/images/zanahoria.jpg',  // Cambiado a ruta local
+    imagen: '/images/zanahoria.jpg',
     destacado: false,
     etiquetas: ['Tradicionales', 'Vegetariano'],
-    calificacion: 4.7
+    calificacion: 4.7,
+    tipo: 'pastel',
+    stock: 6,
+    disponible: true,
+    unidad: 'unidad'
   },
   {
-    id: 5,
+    id: "5",
     nombre: 'Tiramisú',
     descripcion: 'El postre italiano por excelencia, con capas de bizcocho empapado en café y crema de mascarpone.',
     precio: 350,
-    imagen: '/images/tiramisu.jpg',  // Cambiado a ruta local
+    imagen: '/images/tiramisu.jpg',
     destacado: true,
     etiquetas: ['Especiales', 'Favoritos'],
-    calificacion: 4.9
+    calificacion: 4.9,
+    tipo: 'pastel',
+    stock: 15,
+    disponible: true,
+    unidad: 'unidad'
   },
   {
-    id: 6,
+    id: "6",
     nombre: 'Pastel de Limón',
     descripcion: 'Un refrescante pastel de limón con un toque de menta y una base crujiente de galletas.',
     precio: 270,
-    imagen: '/images/limon.jpg',  // Cambiado a ruta local
+    imagen: '/images/limon.jpg',
     destacado: false,
     etiquetas: ['Frutales', 'Verano'],
-    calificacion: 4.6
+    calificacion: 4.6,
+    tipo: 'pastel',
+    stock: 9,
+    disponible: true,
+    unidad: 'unidad'
   }
 ];
 
 const categoriasMock = ['Todos', 'Chocolate', 'Especiales', 'Tradicionales', 'Frutales', 'Favoritos', 'Minis', 'Verano'];
 
-// Definición de la interfaz de Pastel
-export interface Pastel {
-  id: number;
-  nombre: string;
-  descripcion: string;
-  precio: number;
-  imagen: string;
-  destacado: boolean;
-  etiquetas: string[];
-  calificacion: number;
-  cantidad?: number;
-}
-
 export default function DulcesDelicias() {
-  const [pasteles, setPasteles] = useState(pastelesMock);
+  const [pasteles, setPasteles] = useState<Pastel[]>(pastelesMock);
   const [categoriaActiva, setCategoriaActiva] = useState('Todos');
   const [busqueda, setBusqueda] = useState('');
   const [mostrarFiltro, setMostrarFiltro] = useState(false);
@@ -100,6 +114,42 @@ export default function DulcesDelicias() {
   const { carrito, agregarAlCarrito } = useCarrito();
   const [checkoutAbierto, setCheckoutAbierto] = useState(false);
   
+  // Efecto para guardar los pasteles en el inventario
+  useEffect(() => {
+    const guardarPastelesEnInventario = async () => {
+      try {
+        // Intentar cargar productos existentes
+        const productosExistentes = await productoService.getProductos();
+        
+        // Para cada pastel en pastelesMock
+        for (const pastel of pastelesMock) {
+          // Verificar si el pastel ya existe en el inventario
+          const pastelExiste = productosExistentes.some(p => p.id === pastel.id);
+          
+          if (!pastelExiste) {
+            // Si no existe, crearlo en el inventario
+            try {
+              const productoParaCrear = {
+                ...pastel,
+                tipo: pastel.tipo || 'pastel',
+                stock: pastel.stock || 0
+              };
+              await productoService.createProducto(productoParaCrear);
+              console.log(`Pastel ${pastel.nombre} guardado en inventario`);
+            } catch (error) {
+              console.error(`Error al guardar pastel ${pastel.nombre}:`, error);
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error al guardar pasteles en inventario:', error);
+        toast.error('Error al sincronizar con inventario');
+      }
+    };
+
+    guardarPastelesEnInventario();
+  }, []); // Se ejecuta solo al montar el componente
+
   // Filtrar pasteles por categoría y búsqueda
   useEffect(() => {
     let pastelesActualizados = [...pastelesMock];
@@ -147,7 +197,7 @@ export default function DulcesDelicias() {
   };
 
   // Función para eliminar de favoritos
-  const eliminarFavorito = (id: number) => {
+  const eliminarFavorito = (id: string) => {
     setFavoritos(favoritos.filter(fav => fav.id !== id));
   };
   

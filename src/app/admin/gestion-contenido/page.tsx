@@ -1,7 +1,11 @@
 "use client"
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Sidebar from '@/components/form/sidebar';
 import { Plus, Edit, Trash2, Tag, Layers, ListTree, Cake } from 'lucide-react';
+import Image from 'next/image';
+import { Categoria, Subcategoria, Etiqueta, Pastel } from '@/services/contentService';
+import { toast } from 'sonner';
+import { Prisma } from '@prisma/client';
 
 export default function ContentManagement() {
   const [activeTab, setActiveTab] = useState('categories');
@@ -9,67 +13,47 @@ export default function ContentManagement() {
   const [modalType, setModalType] = useState('create');
   const [currentItem, setCurrentItem] = useState<ModalItem | null>(null);
 
-  // Datos de ejemplo
-  const [categories, setCategories] = useState([
-    { id: 1, nombre: 'Tamaño', descripcion: 'Tortas decoradas', color: '#f472b6' },
-    { id: 2, nombre: 'Sabor', descripcion: 'Pequeños pasteles individuales', color: '#60a5fa' },
-  ]);
+  const [categories, setCategories] = useState<Categoria[]>([]);
+  const [subcategories, setSubcategories] = useState<Subcategoria[]>([]);
+  
+  const [tags, setTags] = useState<Etiqueta[]>([]);
+  const [pasteles, setPasteles] = useState<Pastel[]>([]);
 
-  const [subcategories, setSubcategories] = useState([
-    { id: 1, fk_categoria: 1, nombre: 'Pequeño', detalles: 'Para 5 personas', precio_adicional: 50, color: '#f472b6' },
-    { id: 2, fk_categoria: 2, nombre: 'Chocolate', detalles: 'Sabor de chocolate', precio_adicional: 100, color: '#f472b6' },
-  ]);
+  useEffect(() => {
+    cargarDatos();
+  }, []);
 
-  const [tags, setTags] = useState([
-    { id: 1, nombre: 'Chocolate', color: '#f59e0b' },
-    { id: 2, nombre: 'Fresa', color: '#10b981' },
-    { id: 3, nombre: 'Vainilla', color: '#93c5fd' },
-    { id: 4, nombre: 'Frutos Rojos', color: '#ec4899' },
-  ]);
+  const cargarDatos = async () => {
+    try {
+      const [categoriasRes, subcategoriasRes, etiquetasRes, pastelesRes] = await Promise.all([
+        fetch('/api/content?type=categories'),
+        fetch('/api/content?type=subcategories'),
+        fetch('/api/content?type=tags'),
+        fetch('/api/content?type=pasteles')
+      ]);
 
-  const [pasteles, setPasteles] = useState([
-    { 
-      id: 1, 
-      nombre: 'Pastel de Chocolate', 
-      descripcion: 'Delicioso pastel de chocolate con relleno de trufa',
-      precio: 450.00,
-      imagen: '/pasteles/chocolate.jpg',
-      destacado: true,
-      stock: 5,
-      disponible: true,
-      fecha_creacion: '2025-04-15T10:30:00',
-      etiquetas: [1, 3] // IDs de las etiquetas asociadas
-    },
-    { 
-      id: 2, 
-      nombre: 'Pastel de Fresa', 
-      descripcion: 'Pastel con base de vainilla y relleno de fresas naturales',
-      precio: 380.00,
-      imagen: '/pasteles/fresa.jpg',
-      destacado: false,
-      stock: 3,
-      disponible: true,
-      fecha_creacion: '2025-04-10T14:25:00',
-      etiquetas: [2, 4] // IDs de las etiquetas asociadas
+      if (!categoriasRes.ok || !subcategoriasRes.ok || !etiquetasRes.ok || !pastelesRes.ok) {
+        throw new Error('Error al cargar los datos');
+      }
+
+      const [categoriasData, subcategoriasData, etiquetasData, pastelesData] = await Promise.all([
+        categoriasRes.json(),
+        subcategoriasRes.json(),
+        etiquetasRes.json(),
+        pastelesRes.json()
+      ]);
+
+      setCategories(categoriasData);
+      setSubcategories(subcategoriasData);
+      setTags(etiquetasData);
+      setPasteles(pastelesData);
+    } catch (error) {
+      console.error('Error al cargar los datos:', error);
+      toast.error('Error al cargar los datos');
     }
-  ]);
-
-  type Category = { id: number; nombre: string; descripcion: string; color: string };
-  type Subcategory = { id: number; fk_categoria: number; nombre: string; detalles: string; precio_adicional: number; color: string };
-  type TagType = { id: number; nombre: string; color: string };
-  type Pastel = { 
-    id: number; 
-    nombre: string; 
-    descripcion: string; 
-    precio: number; 
-    imagen: string; 
-    destacado: boolean; 
-    stock: number; 
-    disponible: boolean; 
-    fecha_creacion: string; 
-    etiquetas: number[] 
   };
-  type ModalItem = Category | Subcategory | TagType | Pastel | { [key: string]: unknown };
+
+  type ModalItem = Categoria | Subcategoria | Etiqueta | Pastel | { [key: string]: unknown };
 
   const handleOpenModal = (
     type: 'create' | 'edit',
@@ -82,124 +66,110 @@ export default function ContentManagement() {
     setShowModal(true);
   };
 
-  const handleDelete = (id: number, type: 'category' | 'subcategory' | 'tag' | 'pastel') => {
-    switch(type) {
-      case 'category':
-        setCategories(categories.filter(cat => cat.id !== id));
-        break;
-      case 'subcategory':
-        setSubcategories(subcategories.filter(subcat => subcat.id !== id));
-        break;
-      case 'tag':
-        setTags(tags.filter(tag => tag.id !== id));
-        break;
-      case 'pastel':
-        setPasteles(pasteles.filter(pastel => pastel.id !== id));
-        break;
+  const handleDelete = async (id: number, type: 'category' | 'subcategory' | 'tag' | 'pastel') => {
+    try {
+      const res = await fetch(`/api/content?type=${type}s&id=${id}`, {
+        method: 'DELETE'
+      });
+
+      if (!res.ok) {
+        throw new Error('Error al eliminar');
+      }
+
+      switch(type) {
+        case 'category':
+          setCategories(categories.filter(cat => cat.id !== id));
+          break;
+        case 'subcategory':
+          setSubcategories(subcategories.filter(subcat => subcat.id !== id));
+          break;
+        case 'tag':
+          setTags(tags.filter(tag => tag.id !== id));
+          break;
+        case 'pastel':
+          setPasteles(pasteles.filter(pastel => pastel.id !== id));
+          break;
+      }
+      toast.success('Elemento eliminado con éxito');
+    } catch (error) {
+      console.error('Error al eliminar:', error);
+      toast.error('Error al eliminar el elemento');
     }
   };
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     
-    if (modalType === 'create') {
-      const newId = Math.max(...(activeTab === 'categories' 
-        ? categories.map(i => i.id) 
-        : activeTab === 'subcategories' 
-          ? subcategories.map(i => i.id)
-          : activeTab === 'tags'
-            ? tags.map(i => i.id)
-            : pasteles.map(i => i.id)), 0) + 1;
+    try {
+      const type = activeTab === 'categories' ? 'categories' :
+                  activeTab === 'subcategories' ? 'subcategories' :
+                  activeTab === 'tags' ? 'tags' : 'pasteles';
+
+      // Preparar los datos para enviar
+      const dataToSend = { ...currentItem };
       
-      const newItem = { ...currentItem, id: newId };
+      // Convertir Prisma.Decimal a string para la serialización
+      if (activeTab === 'subcategories' && 'precio_adicional' in dataToSend) {
+        dataToSend.precio_adicional = dataToSend.precio_adicional?.toString();
+      }
       
-      if (activeTab === 'categories') {
-        setCategories([
-          ...categories,
-          {
-            id: newItem.id,
-            nombre: (newItem as Category).nombre || '',
-            descripcion: (newItem as Category).descripcion || '',
-            color: (newItem as Category).color || '#f472b6'
-          }
-        ]);
-      } else if (activeTab === 'subcategories') {
-        setSubcategories([
-          ...subcategories,
-          {
-            id: newItem.id,
-            fk_categoria: (newItem as Subcategory).fk_categoria || 0,
-            nombre: (newItem as Subcategory).nombre || '',
-            detalles: (newItem as Subcategory).detalles || '',
-            precio_adicional: (newItem as Subcategory).precio_adicional || 0,
-            color: (newItem as Subcategory).color || '#f472b6'
-          }
-        ]);
-      } else if (activeTab === 'tags') {
-        setTags([
-          ...tags,
-          {
-            id: newItem.id,
-            nombre: (newItem as TagType).nombre || '',
-            color: (newItem as TagType).color || '#f472b6'
-          }
-        ]);
-      } else if (activeTab === 'pasteles') {
-        setPasteles([
-          ...pasteles,
-          {
-            id: newItem.id,
-            nombre: (newItem as Pastel).nombre || '',
-            descripcion: (newItem as Pastel).descripcion || '',
-            precio: (newItem as Pastel).precio || 0,
-            imagen: (newItem as Pastel).imagen || '',
-            destacado: (newItem as Pastel).destacado || false,
-            stock: (newItem as Pastel).stock || 0,
-            disponible: (newItem as Pastel).disponible ?? true,
-            fecha_creacion: new Date().toISOString(),
-            etiquetas: (newItem as Pastel).etiquetas || []
-          }
-        ]);
+      if (activeTab === 'pasteles' && 'precio' in dataToSend) {
+        dataToSend.precio = dataToSend.precio?.toString();
       }
-    } else if (modalType === 'edit') {
-      if (activeTab === 'categories') {
-        if (currentItem) {
-          setCategories(categories.map(item => item.id === (currentItem as Category).id ? currentItem as Category : item));
-        }
-      } else if (activeTab === 'subcategories') {
-        if (currentItem) {
-          setSubcategories(subcategories.map(item => item.id === (currentItem as Subcategory).id ? currentItem as Subcategory : item));
-        }
-      } else if (activeTab === 'tags') {
-        if (currentItem && 'id' in currentItem && 'nombre' in currentItem && 'color' in currentItem) {
-          setTags(tags.map(item => item.id === currentItem.id ? currentItem as TagType : item));
-        }
-      } else if (activeTab === 'pasteles') {
-        if (currentItem && 'id' in currentItem && 'nombre' in currentItem && 'descripcion' in currentItem && 'precio' in currentItem && 'imagen' in currentItem && 'destacado' in currentItem && 'stock' in currentItem && 'disponible' in currentItem && 'fecha_creacion' in currentItem && 'etiquetas' in currentItem) {
-          setPasteles(pasteles.map(item =>
-                      item.id === currentItem.id
-                        ? {
-                            id: Number(currentItem.id),
-                            nombre: String(currentItem.nombre ?? ''),
-                            descripcion: String(currentItem.descripcion ?? ''),
-                            precio: Number(currentItem.precio ?? 0),
-                            imagen: String(currentItem.imagen ?? ''),
-                            destacado: Boolean(currentItem.destacado),
-                            stock: Number(currentItem.stock ?? 0),
-                            disponible: Boolean(currentItem.disponible),
-                            fecha_creacion: String(currentItem.fecha_creacion ?? new Date().toISOString()),
-                            etiquetas: Array.isArray(currentItem.etiquetas) ? currentItem.etiquetas.map(Number) : []
-                          }
-                        : item
-                    ));
-        }
+
+      const method = modalType === 'create' ? 'POST' : 'PUT';
+      const res = await fetch(`/api/content?type=${type}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(dataToSend)
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Error al guardar');
       }
+
+      const data = await res.json();
+
+      if (modalType === 'create') {
+        if (activeTab === 'categories') {
+          setCategories([...categories, data]);
+        } else if (activeTab === 'subcategories') {
+          setSubcategories([...subcategories, data]);
+        } else if (activeTab === 'tags') {
+          setTags([...tags, data]);
+        } else if (activeTab === 'pasteles') {
+          setPasteles([...pasteles, data]);
+        }
+        toast.success(`${activeTab === 'categories' ? 'Categoría' : 
+                      activeTab === 'subcategories' ? 'Subcategoría' : 
+                      activeTab === 'tags' ? 'Etiqueta' : 'Pastel'} creado con éxito`);
+      } else {
+        if (activeTab === 'categories') {
+          setCategories(categories.map(item => item.id === data.id ? data : item));
+        } else if (activeTab === 'subcategories') {
+          setSubcategories(subcategories.map(item => item.id === data.id ? data : item));
+        } else if (activeTab === 'tags') {
+          setTags(tags.map(item => item.id === data.id ? data : item));
+        } else if (activeTab === 'pasteles') {
+          setPasteles(pasteles.map(item => item.id === data.id ? data : item));
+        }
+        toast.success(`${activeTab === 'categories' ? 'Categoría' : 
+                      activeTab === 'subcategories' ? 'Subcategoría' : 
+                      activeTab === 'tags' ? 'Etiqueta' : 'Pastel'} actualizado con éxito`);
+      }
+      
+      setShowModal(false);
+    } catch (error) {
+      console.error('Error al guardar:', error);
+      toast.error(error instanceof Error ? error.message : 'Error al guardar los cambios');
     }
-    
-    setShowModal(false);
   };
 
-  const formatDate = (dateString: string) => {
+  const formatDate = (dateString: Date | null) => {
+    if (!dateString) return 'N/A';
     const date = new Date(dateString);
     return date.toLocaleDateString('es-MX');
   };
@@ -209,6 +179,16 @@ export default function ContentManagement() {
       const tag = tags.find(t => t.id === id);
       return tag ? tag.nombre : '';
     }).filter(name => name !== '');
+  };
+
+  const formatPrice = (price: Prisma.Decimal | null | undefined): string => {
+    if (!price) return '0.00';
+    try {
+      return Number(price).toFixed(2);
+    } catch (error) {
+      console.error('Error al formatear precio:', error);
+      return '0.00';
+    }
   };
 
   return (
@@ -322,14 +302,14 @@ export default function ContentManagement() {
                     {categories.map((category) => (
                       <tr key={category.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{category.nombre}</td>
-                        <td className="px-6 py-4 text-gray-500 max-w-xs truncate">{category.descripcion}</td>
+                        <td className="px-6 py-4 text-gray-500 max-w-xs truncate">{category.descripcion || 'Sin descripción'}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center gap-2">
                             <div 
                               className="w-6 h-6 rounded-full border border-gray-300" 
-                              style={{ backgroundColor: category.color }}
+                              style={{ backgroundColor: category.color || '#f472b6' }}
                             />
-                            <span className="text-xs text-gray-500">{category.color}</span>
+                            <span className="text-xs text-gray-500">{category.color || '#f472b6'}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -378,12 +358,12 @@ export default function ContentManagement() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {subcategories.map((subcat) => (
                       <tr key={subcat.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{subcat.nombre}</td>
+                        <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{subcat.nombre || 'Sin nombre'}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-gray-500">
                           {categories.find(c => c.id === subcat.fk_categoria)?.nombre || 'N/A'}
                         </td>
-                        <td className="px-6 py-4 text-gray-500 max-w-xs truncate">{subcat.detalles}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-gray-500">${subcat.precio_adicional.toFixed(2)}</td>
+                        <td className="px-6 py-4 text-gray-500 max-w-xs truncate">{subcat.detalles || 'Sin detalles'}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-gray-500">${formatPrice(subcat.precio_adicional)}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex gap-2">
                             <button
@@ -433,9 +413,9 @@ export default function ContentManagement() {
                           <div className="flex items-center gap-2">
                             <div 
                               className="w-6 h-6 rounded-full border border-gray-300" 
-                              style={{ backgroundColor: tag.color }}
+                              style={{ backgroundColor: tag.color || '#f472b6' }}
                             />
-                            <span className="text-xs text-gray-500">{tag.color}</span>
+                            <span className="text-xs text-gray-500">{tag.color || '#f472b6'}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -488,7 +468,7 @@ export default function ContentManagement() {
                     {pasteles.map((pastel) => (
                       <tr key={pastel.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{pastel.nombre}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-gray-500">${pastel.precio.toFixed(2)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-gray-500">${formatPrice(pastel.precio)}</td>
                         <td className="px-6 py-4">
                           <div className="flex flex-wrap gap-1">
                             {pastel.etiquetas && getTagNames(pastel.etiquetas).map((tagName, index) => (
@@ -501,7 +481,7 @@ export default function ContentManagement() {
                             ))}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-gray-500">{pastel.stock}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-gray-500">{pastel.stock || 0}</td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex rounded-full px-2 text-xs font-semibold ${
                             pastel.destacado ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-800'
@@ -554,9 +534,11 @@ export default function ContentManagement() {
         
         {/* Modal */}
         {showModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg shadow-xl w-full max-w-lg mx-4">
-              <div className="p-6">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-start justify-center z-50">
+            <div className={`bg-white rounded-lg shadow-xl mx-4 my-8 ${
+              activeTab === 'pasteles' ? 'w-full max-w-4xl' : 'w-full max-w-lg'
+            }`}>
+              <div className="p-6 max-h-[90vh] overflow-y-auto">
                 <h2 className="text-xl font-bold mb-4">
                   {modalType === 'create' 
                     ? `Agregar ${activeTab === 'categories' ? 'Categoría' : activeTab === 'subcategories' ? 'Subcategoría' : activeTab === 'tags' ? 'Etiqueta' : 'Pastel'}`
@@ -564,8 +546,8 @@ export default function ContentManagement() {
                 </h2>
                 
                 <form onSubmit={handleSubmit}>
-                  <div className="space-y-4">
-                    <div>
+                  <div className={`space-y-4 ${activeTab === 'pasteles' ? 'grid grid-cols-2 gap-4' : ''}`}>
+                    <div className={activeTab === 'pasteles' ? 'col-span-2' : ''}>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Nombre</label>
                       <input
                         type="text"
@@ -577,12 +559,12 @@ export default function ContentManagement() {
                     </div>
                     
                     {(activeTab === 'categories' || activeTab === 'pasteles') && (
-                      <div>
+                      <div className={activeTab === 'pasteles' ? 'col-span-2' : ''}>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
                           Descripción
                         </label>
                         <textarea
-                          value={'descripcion' in (currentItem ?? {}) ? String((currentItem as Category | Pastel).descripcion ?? '') : ''}
+                          value={'descripcion' in (currentItem ?? {}) ? String((currentItem as Categoria | Pastel).descripcion ?? '') : ''}
                           onChange={(e) => setCurrentItem({...currentItem, descripcion: e.target.value})}
                           className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-rose-500"
                           rows={3}
@@ -595,7 +577,7 @@ export default function ContentManagement() {
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-1">Detalles</label>
                           <textarea
-                            value={'detalles' in (currentItem ?? {}) ? String((currentItem as Subcategory).detalles ?? '') : ''}
+                            value={'detalles' in (currentItem ?? {}) ? String((currentItem as Subcategoria).detalles ?? '') : ''}
                             onChange={(e) => setCurrentItem({...currentItem, detalles: e.target.value})}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-rose-500"
                             rows={2}
@@ -622,22 +604,22 @@ export default function ContentManagement() {
                           </select>
                         </div>
                         
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">Precio Adicional</label>
-                          <div className="relative">
-                            <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">$</span>
-                            <input
-                              type="number"
-                              value={'precio_adicional' in (currentItem ?? {}) ? Number((currentItem as Subcategory).precio_adicional ?? 0) : 0}
-                              onChange={(e) => setCurrentItem({
-                                ...currentItem, 
-                                precio_adicional: parseFloat(e.target.value)
-                              })}
-                              className="w-full pl-8 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-rose-500"
-                              step="0.01"
-                              min="0"
-                            />
-                          </div>
+                        <div className="mb-4">
+                          <label className="block text-sm font-medium text-gray-700">Precio Adicional</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={currentItem && 'precio_adicional' in currentItem ? 
+                              Number((currentItem as Subcategoria).precio_adicional) : ''}
+                            onChange={(e) => {
+                              if (currentItem && 'precio_adicional' in currentItem) {
+                                const value = e.target.value ? new Prisma.Decimal(e.target.value) : null;
+                                setCurrentItem({ ...currentItem, precio_adicional: value });
+                              }
+                            }}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                          />
                         </div>
                       </>
                     )}
@@ -650,10 +632,11 @@ export default function ContentManagement() {
                             <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500">$</span>
                             <input
                               type="number"
-                              value={('precio' in (currentItem ?? {})) ? Number((currentItem as Pastel).precio ?? 0) : 0}
+                              value={('precio' in (currentItem ?? {})) ? 
+                                (currentItem as Pastel).precio?.toString() ?? '0' : '0'}
                               onChange={(e) => setCurrentItem({
                                 ...currentItem, 
-                                precio: parseFloat(e.target.value)
+                                precio: new Prisma.Decimal(e.target.value || '0')
                               })}
                               className="w-full pl-8 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-rose-500"
                               step="0.01"
@@ -677,7 +660,7 @@ export default function ContentManagement() {
                           />
                         </div>
                         
-                        <div>
+                        <div className="col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-1">Etiquetas</label>
                           <select
                             multiple
@@ -689,10 +672,10 @@ export default function ContentManagement() {
                                 etiquetas: options
                               });
                             }}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-rose-500 h-auto"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-rose-500 h-32"
                           >
                             {tags.map(tag => (
-                              <option key={tag.id} value={tag.id}>
+                              <option key={tag.id} value={tag.id} className="py-1">
                                 {tag.nombre}
                               </option>
                             ))}
@@ -700,7 +683,7 @@ export default function ContentManagement() {
                           <p className="mt-1 text-xs text-gray-500">Mantén presionado Ctrl (Windows) o Command (Mac) para seleccionar múltiples opciones.</p>
                         </div>
                         
-                        <div className="flex flex-wrap gap-4">
+                        <div className="col-span-2 flex flex-wrap gap-4 p-4 bg-gray-50 rounded-lg">
                           <div className="flex items-center">
                             <input
                               type="checkbox"
@@ -734,15 +717,32 @@ export default function ContentManagement() {
                           </div>
                         </div>
 
-                        <div>
+                        <div className="col-span-2">
                           <label className="block text-sm font-medium text-gray-700 mb-1">Imagen</label>
-                          <input
-                            type="text"
-                            value={('imagen' in (currentItem ?? {})) ? String((currentItem as Pastel).imagen ?? '') : ''}
-                            onChange={(e) => setCurrentItem({...currentItem, imagen: e.target.value})}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-rose-500"
-                            placeholder="/pasteles/imagen.jpg"
-                          />
+                          <div className="flex gap-4">
+                            <input
+                              type="text"
+                              value={('imagen' in (currentItem ?? {})) ? String((currentItem as Pastel).imagen ?? '') : ''}
+                              onChange={(e) => setCurrentItem({...currentItem, imagen: e.target.value})}
+                              className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-rose-500"
+                              placeholder="https://ejemplo.com/imagen.jpg"
+                            />
+                            {('imagen' in (currentItem ?? {})) && (currentItem as Pastel).imagen && (
+                              <div className="w-24 h-24 border border-gray-300 rounded-md overflow-hidden">
+                                <Image 
+                                  src={(currentItem as Pastel).imagen || '/placeholder.jpg'} 
+                                  alt={(currentItem as Pastel).nombre}
+                                  width={100}
+                                  height={100}
+                                  className="object-cover rounded"
+                                  unoptimized
+                                />
+                              </div>
+                            )}
+                          </div>
+                          <p className="mt-1 text-xs text-gray-500">
+                            Ingresa una URL de imagen válida (https://...)
+                          </p>
                         </div>
                       </>
                     )}

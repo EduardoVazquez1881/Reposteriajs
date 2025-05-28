@@ -25,15 +25,15 @@ export function CarritoLateral() {
       const usuarioId = 1; // Por ahora usamos un ID fijo
 
       await pedidoService.createPedido({
-        usuarioId,
-        total,
-        direccionEnvio,
-        instrucciones,
-        items: carrito.map(item => ({
-          pastelId: item.id,
-          cantidad: item.cantidad || 1,
-          precio: item.precio
-        }))
+        fk_usuario: usuarioId,
+        direccion: direccionEnvio,
+        notas: instrucciones,
+        carrito_items: carrito.map(item => ({
+          id: 0, // El ID será asignado por el backend
+          fk_pastel: parseInt(item.id),
+          cantidad: item.cantidad || 1
+        })),
+        carrito_personalizado: []
       });
 
       limpiarCarrito();

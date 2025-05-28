@@ -5,19 +5,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
-
-interface Producto {
-  id: string
-  nombre: string
-  descripcion: string
-  tipo: string
-  precio: number
-  stock: number
-  unidad: string
-  imagen?: string
-  destacado: boolean
-  disponible: boolean
-}
+import type { Producto } from "@/services/productoService"
 
 interface ProductoDialogProps {
   open: boolean
@@ -47,10 +35,10 @@ export function ProductoDialog({ open, onOpenChange, producto, onSubmit }: Produ
         tipo: producto.tipo,
         precio: producto.precio.toString(),
         stock: producto.stock.toString(),
-        unidad: producto.unidad,
+        unidad: producto.unidad || "unidad",
         imagen: producto.imagen || "",
-        destacado: producto.destacado,
-        disponible: producto.disponible
+        destacado: producto.destacado || false,
+        disponible: producto.disponible || true
       })
     } else {
       setFormData({

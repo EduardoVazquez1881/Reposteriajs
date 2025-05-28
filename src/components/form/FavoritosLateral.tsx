@@ -2,19 +2,13 @@
 
 import { Trash2, X, Heart } from 'lucide-react';
 import Image from 'next/image';
-
-interface Favorito {
-  id: number;
-  nombre: string;
-  precio: number;
-  imagen: string;
-}
+import type { Pastel } from '@/types/pastel';
 
 interface FavoritosLateralProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
-  favoritos: Favorito[];
-  onEliminarFavorito: (id: number) => void;
+  favoritos: Pastel[];
+  onEliminarFavorito: (id: string) => void;
 }
 
 export default function FavoritosLateral({ isOpen, setIsOpen, favoritos, onEliminarFavorito }: FavoritosLateralProps) {

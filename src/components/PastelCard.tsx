@@ -3,21 +3,11 @@
 import Image from 'next/image';
 import { Heart, ShoppingBag } from 'lucide-react';
 import { useCarrito } from '@/context/CarritoContext';
-
-interface Pastel {
-  id: number;
-  nombre: string;
-  descripcion: string;
-  precio: number;
-  imagen: string;
-  destacado: boolean;
-  etiquetas: string[];
-  calificacion: number;
-}
+import type { Pastel } from '@/types/pastel';
 
 interface PastelCardProps {
   pastel: Pastel;
-  onToggleFavorito: (id: number) => void;
+  onToggleFavorito: (id: string) => void;
   esFavorito: boolean;
 }
 

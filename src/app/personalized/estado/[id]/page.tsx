@@ -6,11 +6,59 @@ import Sidebar from '@/components/form/sidebar';
 import { CheckCircle2, XCircle, Eye, Package, Calendar, MapPin, DollarSign, Edit2, Save, X } from 'lucide-react';
 import { pedidoService } from '@/services/pedidoService';
 
+// Agregar la interfaz Pedido al inicio del archivo, después de los imports
+interface Pedido {
+  id: number;
+  estado: string;
+  fecha: string | null;
+  direccion: string | null;
+  total: number;
+  precio?: number;
+  instrucciones?: string;
+  descripcion?: string;
+  pedido_pastel: Array<{
+    id: number;
+    carrito_items: Array<{
+      id: number;
+      cantidad: number;
+      precio_unitario: number;
+      pastel?: {
+        nombre: string;
+      };
+    }>;
+  }>;
+}
+
+interface ErrorResponse {
+  message?: string;
+  response?: {
+    data?: {
+      message?: string;
+      error?: string;
+    };
+    status?: number;
+  };
+}
+
+interface CarritoItem {
+  id: number;
+  cantidad: number;
+  precio_unitario: number;
+  pastel?: {
+    nombre: string;
+  };
+}
+
+interface PedidoPastel {
+  id: number;
+  carrito_items: CarritoItem[];
+}
+
 export default function EstadoPedidoPage() {
   const router = useRouter();
   const params = useParams();
   const { id } = params;
-  const [pedido, setPedido] = useState<any>(null);
+  const [pedido, setPedido] = useState<Pedido | null>(null);
   const [loading, setLoading] = useState(true);
   const [mostrarDetalles, setMostrarDetalles] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
@@ -26,11 +74,23 @@ export default function EstadoPedidoPage() {
         const pedidoId = typeof id === 'string' ? parseInt(id) : Array.isArray(id) ? parseInt(id[0]) : undefined;
         if (!pedidoId) return;
         const data = await pedidoService.getPedidoById(pedidoId);
-        if (data.fecha) {
-          data.fechaEntrega = data.fecha;
+        console.log('Pedido cargado:', data);
+        
+        // Asegurarse de que la fecha se maneje correctamente
+        if (data) {
+          // Usar fechaEntrega si está disponible, de lo contrario usar fecha
+          const fechaPedido = data.fechaEntrega || data.fecha;
+          if (fechaPedido) {
+            // Actualizar también el estado de nuevaFecha para mantener consistencia
+            setNuevaFecha(new Date(fechaPedido).toISOString().split('T')[0]);
+          }
+          setPedido({
+            ...data,
+            fecha: fechaPedido
+          });
         }
-        setPedido(data);
       } catch (error) {
+        console.error('Error al cargar el pedido:', error);
         toast.error("No se pudo cargar el pedido");
       } finally {
         setLoading(false);
@@ -40,64 +100,77 @@ export default function EstadoPedidoPage() {
   }, [id]);
 
   const handleFinalizarPedido = async () => {
-    if (!pedido) return;
+    if (!pedido) {
+      toast.error('No hay pedido para finalizar');
+      return;
+    }
     
-    // Confirmar antes de finalizar
-    const confirmar = window.confirm('¿Estás seguro de que deseas finalizar este pedido? Esta acción no se puede deshacer.');
+    // Validar que el pedido no esté ya en proceso o cancelado
+    if (pedido.estado === 'en_proceso') {
+      toast.error('Este pedido ya está en proceso');
+      return;
+    }
+    if (pedido.estado === 'cancelado') {
+      toast.error('No se puede procesar un pedido cancelado');
+      return;
+    }
+
+    // Validar que tenga fecha de entrega
+    if (!pedido.fecha) {
+      toast.error('Debes establecer una fecha de entrega antes de procesar el pedido');
+      return;
+    }
+
+    // Validar que tenga dirección
+    if (!pedido.direccion) {
+      toast.error('Debes establecer una dirección de entrega antes de procesar el pedido');
+      return;
+    }
+    
+    // Confirmar antes de procesar
+    const confirmar = window.confirm('¿Estás seguro de que deseas procesar este pedido? El pedido será enviado a la sección de pedidos para su seguimiento.');
     if (!confirmar) return;
 
     setIsUpdating(true);
     try {
-      // Verificar que el pedido no esté ya completado o cancelado
-      if (pedido.estado === 'completado') {
-        toast.error('Este pedido ya está finalizado');
-        setIsUpdating(false);
-        return;
-      }
-      if (pedido.estado === 'cancelado') {
-        toast.error('No se puede finalizar un pedido cancelado');
-        setIsUpdating(false);
-        return;
-      }
-
-      console.log('Intentando finalizar pedido:', { 
+      console.log('Intentando procesar pedido:', { 
         id: pedido.id, 
         estadoActual: pedido.estado,
         pedidoCompleto: pedido 
       });
       
-      const pedidoActualizado = await pedidoService.updatePedidoEstado(pedido.id, 'completado');
-      console.log('Respuesta del servidor:', pedidoActualizado);
+      const pedidoActualizado = await pedidoService.updateEstadoPedido(pedido.id, 'en_proceso');
       
       if (!pedidoActualizado) {
         throw new Error('No se recibió respuesta del servidor');
       }
+
+      console.log('Pedido actualizado exitosamente:', pedidoActualizado);
       
       // Actualizar el estado local del pedido
-      setPedido((prevPedido: typeof pedido) => ({ ...prevPedido, estado: 'completado' }));
-      toast.success('Pedido finalizado exitosamente');
+      setPedido(pedidoActualizado);
+      toast.success('Pedido enviado a procesamiento exitosamente');
       
-      // Opcional: redirigir después de un breve delay
+      // Redirigir después de un breve delay
       setTimeout(() => {
         router.push('/personalized');
       }, 2000);
-    } catch (error: any) {
-      console.error('Error detallado al finalizar el pedido:', {
+    } catch (error: unknown) {
+      console.error('Error al procesar el pedido:', {
         error,
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
         pedidoId: pedido.id,
         estadoActual: pedido.estado
       });
       
-      let errorMessage = 'Error al finalizar el pedido';
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error.message) {
-        errorMessage = error.message;
+      let errorMessage = 'Error al procesar el pedido';
+      const err = error as ErrorResponse;
+      
+      if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
       
       toast.error(errorMessage);
@@ -110,11 +183,13 @@ export default function EstadoPedidoPage() {
     if (!pedido) return;
     setIsUpdating(true);
     try {
-      await pedidoService.updatePedidoEstado(pedido.id, 'cancelado');
+      await pedidoService.updateEstadoPedido(pedido.id, 'cancelado');
       setPedido({ ...pedido, estado: 'cancelado' });
       toast.success('Pedido cancelado exitosamente');
-    } catch (error) {
-      toast.error('Error al cancelar el pedido');
+    } catch (error: unknown) {
+      const err = error as ErrorResponse;
+      console.error('Error al cancelar pedido:', err);
+      toast.error(err.message || 'Error al cancelar el pedido');
     } finally {
       setIsUpdating(false);
     }
@@ -126,38 +201,92 @@ export default function EstadoPedidoPage() {
       return;
     }
 
-    // Validar que la fecha no sea anterior a hoy
-    const fechaSeleccionada = new Date(nuevaFecha);
-    const hoy = new Date();
-    hoy.setHours(0, 0, 0, 0);
-
-    if (fechaSeleccionada < hoy) {
-      setErrorFecha('La fecha no puede ser anterior a hoy');
-      return;
-    }
-
-    setErrorFecha('');
-    setIsUpdating(true);
-    
     try {
-      const pedidoActualizado = await pedidoService.updatePedido(pedido.id, {
-        fechaEntrega: nuevaFecha
+      // Validar la fecha antes de enviarla
+      const fechaSeleccionada = new Date(nuevaFecha + 'T12:00:00');
+      const hoy = new Date();
+      hoy.setHours(0, 0, 0, 0);
+
+      if (fechaSeleccionada < hoy) {
+        setErrorFecha('La fecha no puede ser anterior a hoy');
+        return;
+      }
+
+      const fechaMaxima = new Date();
+      fechaMaxima.setDate(fechaMaxima.getDate() + 30);
+      if (fechaSeleccionada > fechaMaxima) {
+        setErrorFecha('La fecha no puede ser más de 30 días en el futuro');
+        return;
+      }
+
+      setErrorFecha('');
+      setIsUpdating(true);
+      
+      // Formatear la fecha en formato ISO para el servidor
+      const fechaISO = fechaSeleccionada.toISOString();
+      console.log('Actualizando fecha del pedido:', { 
+        id: pedido.id, 
+        nuevaFecha, 
+        fechaISO,
+        pedidoActual: pedido 
       });
       
-      if (pedidoActualizado.fecha) {
-        pedidoActualizado.fechaEntrega = pedidoActualizado.fecha;
-      }
+      // Actualizar el pedido con la nueva fecha
+      const pedidoActualizado = await pedidoService.updatePedido(pedido.id, {
+        fechaEntrega: fechaISO
+      });
       
-      setPedido(pedidoActualizado);
-      setEditandoFecha(false);
-      toast.success('Fecha de entrega actualizada exitosamente');
-    } catch (error: any) {
-      console.error('Error al actualizar la fecha:', error);
-      const errorMessage = error.response?.data?.message || 'Error al actualizar la fecha';
+      console.log('Pedido actualizado:', pedidoActualizado);
+      
+      // Actualizar el estado local con la nueva fecha
+      if (pedidoActualizado) {
+        // Asegurarse de que la fecha se actualice correctamente en el estado local
+        const fechaActualizada = pedidoActualizado.fechaEntrega || pedidoActualizado.fecha;
+        setPedido({
+          ...pedidoActualizado,
+          fecha: fechaActualizada
+        });
+        
+        // Actualizar también el input de fecha para mantener la consistencia
+        if (fechaActualizada) {
+          setNuevaFecha(new Date(fechaActualizada).toISOString().split('T')[0]);
+        }
+        
+        setEditandoFecha(false);
+        toast.success('Fecha de entrega actualizada exitosamente');
+      } else {
+        throw new Error('No se recibió respuesta del servidor');
+      }
+    } catch (error: unknown) {
+      const err = error as ErrorResponse;
+      console.error('Error al actualizar la fecha:', err);
+      const errorMessage = err.message || err.response?.data?.message || 'Error al actualizar la fecha';
       setErrorFecha(errorMessage);
       toast.error(errorMessage);
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  // Función auxiliar para formatear la fecha
+  const formatearFecha = (fecha: string | Date | null) => {
+    if (!fecha) return 'Por definir';
+    try {
+      const fechaObj = new Date(fecha);
+      if (isNaN(fechaObj.getTime())) {
+        console.error('Fecha inválida:', fecha);
+        return 'Fecha inválida';
+      }
+      // Ajustar la fecha para la zona horaria local
+      fechaObj.setMinutes(fechaObj.getMinutes() + fechaObj.getTimezoneOffset());
+      return fechaObj.toLocaleDateString('es-ES', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch (error) {
+      console.error('Error al formatear fecha:', error);
+      return 'Error en fecha';
     }
   };
 
@@ -171,9 +300,10 @@ export default function EstadoPedidoPage() {
       setPedido(pedidoActualizado);
       setEditandoDireccion(false);
       toast.success('Dirección actualizada exitosamente');
-    } catch (error: any) {
-      console.error('Error al actualizar la dirección:', error);
-      toast.error(error.response?.data?.message || 'Error al actualizar la dirección');
+    } catch (error: unknown) {
+      const err = error as ErrorResponse;
+      console.error('Error al actualizar la dirección:', err);
+      toast.error(err.message || 'Error al actualizar la dirección');
     } finally {
       setIsUpdating(false);
     }
@@ -243,8 +373,10 @@ export default function EstadoPedidoPage() {
                       onClick={() => {
                         setEditandoFecha(true);
                         setNuevaFecha(pedido.fecha ? new Date(pedido.fecha).toISOString().split('T')[0] : '');
+                        setErrorFecha('');
                       }}
                       className="text-pink-600 hover:text-pink-700"
+                      title="Editar fecha de entrega"
                     >
                       <Edit2 size={16} />
                     </button>
@@ -262,11 +394,13 @@ export default function EstadoPedidoPage() {
                         }}
                         className={`flex-1 p-2 border rounded-md ${errorFecha ? 'border-red-500' : 'border-gray-300'}`}
                         min={new Date().toISOString().split('T')[0]}
+                        max={new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
                       />
                       <button
                         onClick={handleActualizarFecha}
                         disabled={isUpdating || !nuevaFecha}
                         className="p-2 text-green-600 hover:text-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Guardar fecha"
                       >
                         {isUpdating ? (
                           <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-green-600"></div>
@@ -284,6 +418,7 @@ export default function EstadoPedidoPage() {
                         }}
                         disabled={isUpdating}
                         className="p-2 text-red-600 hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Cancelar edición"
                       >
                         <X size={16} />
                       </button>
@@ -291,14 +426,13 @@ export default function EstadoPedidoPage() {
                     {errorFecha && (
                       <p className="text-sm text-red-500">{errorFecha}</p>
                     )}
+                    <p className="text-xs text-gray-500">
+                      La fecha debe ser entre hoy y los próximos 30 días
+                    </p>
                   </div>
                 ) : (
                   <p className="text-lg font-medium">
-                    {pedido.fecha ? new Date(pedido.fecha).toLocaleDateString('es-ES', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric'
-                    }) : 'Por definir'}
+                    {formatearFecha(pedido.fecha)}
                   </p>
                 )}
               </div>
@@ -376,11 +510,11 @@ export default function EstadoPedidoPage() {
                   {pedido.pedido_pastel && pedido.pedido_pastel.length > 0 && (
                     <div>
                       <h5 className="font-semibold mb-2">Pasteles seleccionados:</h5>
-                      {pedido.pedido_pastel.map(function(pp: any, idx: number) {
+                      {pedido.pedido_pastel.map((pp: PedidoPastel, idx: number) => {
                         return (
                           <div key={pp.id || idx} className="mb-2 p-2 border rounded">
                             {pp.carrito_items && pp.carrito_items.length > 0 ? (
-                              pp.carrito_items.map(function(item: any, i: number) {
+                              pp.carrito_items.map((item: CarritoItem, i: number) => {
                                 return (
                                   <div key={item.id || i} className="mb-2">
                                     <span className="font-medium">Nombre:</span> {item.pastel?.nombre || 'Sin nombre'}<br />
@@ -401,22 +535,28 @@ export default function EstadoPedidoPage() {
               )}
             </div>
 
-            {pedido.estado === 'pendiente' && (
+            {pedido.estado !== 'en_proceso' && pedido.estado !== 'cancelado' && (
               <div className="flex gap-4 mt-6">
                 <button
                   onClick={handleFinalizarPedido}
-                  disabled={isUpdating}
-                  className="flex-1 flex items-center justify-center gap-2 bg-green-600 text-white py-3 px-6 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isUpdating || !pedido.fecha || !pedido.direccion}
+                  className={`flex-1 flex items-center justify-center gap-2 ${
+                    !pedido.fecha || !pedido.direccion 
+                      ? 'bg-gray-400 cursor-not-allowed' 
+                      : 'bg-blue-600 hover:bg-blue-700'
+                  } text-white py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   {isUpdating ? (
                     <>
                       <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
-                      Finalizando...
+                      Procesando...
                     </>
                   ) : (
                     <>
                       <CheckCircle2 size={20} />
-                      Finalizar Pedido
+                      {!pedido.fecha || !pedido.direccion 
+                        ? 'Completa los datos requeridos' 
+                        : 'Enviar a Procesamiento'}
                     </>
                   )}
                 </button>

@@ -1,392 +1,310 @@
-"use client"
+"use client";
 
 import { useState } from 'react';
-import { Plus, Trash2, Edit2 } from 'lucide-react';
-import Sidebar from '@/components/form/sidebar';
+import { Plus, Trash2, Edit2, Save, X } from 'lucide-react';
+import { toast } from 'sonner';
 
 interface Oferta {
-  id: number;
+  id: string;
   nombre: string;
-  tipo: 'porcentaje' | 'monto_fijo';
-  valor: number;
+  descripcion: string;
+  descuento: number;
   fechaInicio: string;
   fechaFin: string;
   activa: boolean;
-  productos: number[];
+  tipo: 'flash' | 'categoria';
+  categoria?: string;
 }
 
-interface Descuento {
-  id: number;
-  codigo: string;
-  tipo: 'porcentaje' | 'monto_fijo';
-  valor: number;
-  fechaInicio: string;
-  fechaFin: string;
-  activo: boolean;
-  usoMaximo: number;
-  usoActual: number;
-}
-
-export default function OfertasAdmin() {
+export default function AdminOfertasPage() {
   const [ofertas, setOfertas] = useState<Oferta[]>([]);
-  const [descuentos, setDescuentos] = useState<Descuento[]>([]);
-  const [mostrarFormOferta, setMostrarFormOferta] = useState(false);
-  const [mostrarFormDescuento, setMostrarFormDescuento] = useState(false);
-  const [ofertaEdicion, setOfertaEdicion] = useState<Oferta | null>(null);
-  const [descuentoEdicion, setDescuentoEdicion] = useState<Descuento | null>(null);
+  const [editingOferta, setEditingOferta] = useState<Oferta | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
-  const guardarOferta = (oferta: Oferta) => {
-    if (ofertaEdicion) {
-      setOfertas(ofertas.map(o => o.id === oferta.id ? oferta : o));
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (editingOferta?.id) {
+      // Actualizar oferta existente
+      setOfertas(ofertas.map(o => o.id === editingOferta.id ? editingOferta : o));
+      toast.success('Oferta actualizada correctamente');
     } else {
-      setOfertas([...ofertas, { ...oferta, id: Date.now() }]);
+      // Crear nueva oferta
+      const nuevaOferta: Oferta = {
+        id: Date.now().toString(),
+        nombre: editingOferta?.nombre || '',
+        descripcion: editingOferta?.descripcion || '',
+        descuento: editingOferta?.descuento || 0,
+        fechaInicio: editingOferta?.fechaInicio || '',
+        fechaFin: editingOferta?.fechaFin || '',
+        activa: true,
+        tipo: editingOferta?.tipo || 'flash',
+        categoria: editingOferta?.categoria
+      };
+      setOfertas([...ofertas, nuevaOferta]);
+      toast.success('Oferta creada correctamente');
     }
-    setMostrarFormOferta(false);
-    setOfertaEdicion(null);
+    setShowForm(false);
+    setEditingOferta(null);
   };
 
-  const guardarDescuento = (descuento: Descuento) => {
-    if (descuentoEdicion) {
-      setDescuentos(descuentos.map(d => d.id === descuento.id ? descuento : d));
-    } else {
-      setDescuentos([...descuentos, { ...descuento, id: Date.now() }]);
-    }
-    setMostrarFormDescuento(false);
-    setDescuentoEdicion(null);
+  const handleDelete = (id: string) => {
+    setOfertas(ofertas.filter(o => o.id !== id));
+    toast.success('Oferta eliminada correctamente');
+  };
+
+  const handleNewOferta = () => {
+    setEditingOferta({
+      id: '',
+      nombre: '',
+      descripcion: '',
+      descuento: 0,
+      fechaInicio: '',
+      fechaFin: '',
+      activa: true,
+      tipo: 'flash'
+    });
+    setShowForm(true);
   };
 
   return (
-    <div className="flex min-h-screen bg-rose-50">
-      <Sidebar />
-      <div className="flex-1 p-6">
-        <h1 className="text-2xl font-bold mb-6">Gestión de Ofertas y Descuentos</h1>
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-rose-900">Gestión de Ofertas y Descuentos</h1>
+        <button
+          onClick={handleNewOferta}
+          className="bg-rose-600 text-white px-4 py-2 rounded-lg hover:bg-rose-700 transition-colors flex items-center gap-2"
+        >
+          <Plus size={20} />
+          Nueva Oferta
+        </button>
+      </div>
 
-        {/* Sección de Ofertas */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Ofertas Especiales</h2>
-            <button
-              onClick={() => setMostrarFormOferta(true)}
-              className="bg-pink-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-pink-700"
-            >
-              <Plus size={20} />
-              Nueva Oferta
-            </button>
-          </div>
+      {/* Formulario de Oferta */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl p-6 w-full max-w-2xl">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-semibold text-gray-800">
+                {editingOferta?.id ? 'Editar Oferta' : 'Nueva Oferta'}
+              </h2>
+              <button
+                onClick={() => {
+                  setShowForm(false);
+                  setEditingOferta(null);
+                }}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X size={24} />
+              </button>
+            </div>
 
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Nombre</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Valor</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vigencia</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {ofertas.map((oferta) => (
-                  <tr key={oferta.id}>
-                    <td className="px-6 py-4">{oferta.nombre}</td>
-                    <td className="px-6 py-4">{oferta.tipo === 'porcentaje' ? 'Porcentaje' : 'Monto Fijo'}</td>
-                    <td className="px-6 py-4">{oferta.valor}{oferta.tipo === 'porcentaje' ? '%' : '$'}</td>
-                    <td className="px-6 py-4">{new Date(oferta.fechaInicio).toLocaleDateString()} - {new Date(oferta.fechaFin).toLocaleDateString()}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs ${oferta.activa ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {oferta.activa ? 'Activa' : 'Inactiva'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => {
-                          setOfertaEdicion(oferta);
-                          setMostrarFormOferta(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-800 mr-2"
-                      >
-                        <Edit2 size={18} />
-                      </button>
-                      <button
-                        onClick={() => setOfertas(ofertas.filter(o => o.id !== oferta.id))}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Nombre
+                  </label>
+                  <input
+                    type="text"
+                    value={editingOferta?.nombre || ''}
+                    onChange={(e) => setEditingOferta(prev => prev ? {...prev, nombre: e.target.value} : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Descuento (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={editingOferta?.descuento || 0}
+                    onChange={(e) => setEditingOferta(prev => prev ? {...prev, descuento: Number(e.target.value)} : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Descripción
+                </label>
+                <textarea
+                  value={editingOferta?.descripcion || ''}
+                  onChange={(e) => setEditingOferta(prev => prev ? {...prev, descripcion: e.target.value} : null)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                  rows={3}
+                  required
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Fecha de Inicio
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={editingOferta?.fechaInicio || ''}
+                    onChange={(e) => setEditingOferta(prev => prev ? {...prev, fechaInicio: e.target.value} : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Fecha de Fin
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={editingOferta?.fechaFin || ''}
+                    onChange={(e) => setEditingOferta(prev => prev ? {...prev, fechaFin: e.target.value} : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Tipo de Oferta
+                </label>
+                <select
+                  value={editingOferta?.tipo || 'flash'}
+                  onChange={(e) => setEditingOferta(prev => prev ? {...prev, tipo: e.target.value as 'flash' | 'categoria'} : null)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                >
+                  <option value="flash">Oferta Flash</option>
+                  <option value="categoria">Descuento por Categoría</option>
+                </select>
+              </div>
+
+              {editingOferta?.tipo === 'categoria' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Categoría
+                  </label>
+                  <select
+                    value={editingOferta?.categoria || ''}
+                    onChange={(e) => setEditingOferta(prev => prev ? {...prev, categoria: e.target.value} : null)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                    required
+                  >
+                    <option value="">Seleccionar categoría</option>
+                    <option value="Chocolate">Chocolate</option>
+                    <option value="Frutales">Frutales</option>
+                    <option value="Especiales">Especiales</option>
+                    <option value="Tradicionales">Tradicionales</option>
+                  </select>
+                </div>
+              )}
+
+              <div className="flex justify-end gap-4 mt-6">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForm(false);
+                    setEditingOferta(null);
+                  }}
+                  className="px-4 py-2 text-gray-700 hover:text-gray-900"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="bg-rose-600 text-white px-4 py-2 rounded-lg hover:bg-rose-700 transition-colors flex items-center gap-2"
+                >
+                  <Save size={20} />
+                  {editingOferta?.id ? 'Guardar Cambios' : 'Crear Oferta'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
+      )}
 
-        {/* Sección de Descuentos */}
-        <div>
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold">Códigos de Descuento</h2>
-            <button
-              onClick={() => setMostrarFormDescuento(true)}
-              className="bg-pink-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-pink-700"
-            >
-              <Plus size={20} />
-              Nuevo Descuento
-            </button>
-          </div>
-
-          <div className="bg-white rounded-lg shadow overflow-hidden">
-            <table className="min-w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Código</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Valor</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Uso</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Vigencia</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+      {/* Lista de Ofertas */}
+      <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Nombre
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Descuento
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Tipo
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Fechas
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Estado
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Acciones
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {ofertas.map((oferta) => (
+                <tr key={oferta.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-gray-900">{oferta.nombre}</div>
+                    <div className="text-sm text-gray-500">{oferta.descripcion}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-rose-100 text-rose-800">
+                      {oferta.descuento}%
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="text-sm text-gray-900">
+                      {oferta.tipo === 'flash' ? 'Oferta Flash' : 'Descuento por Categoría'}
+                    </span>
+                    {oferta.categoria && (
+                      <span className="text-sm text-gray-500 block">{oferta.categoria}</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <div>Inicio: {new Date(oferta.fechaInicio).toLocaleDateString()}</div>
+                    <div>Fin: {new Date(oferta.fechaFin).toLocaleDateString()}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                      oferta.activa ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {oferta.activa ? 'Activa' : 'Inactiva'}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <button
+                      onClick={() => {
+                        setEditingOferta(oferta);
+                        setShowForm(true);
+                      }}
+                      className="text-rose-600 hover:text-rose-900 mr-4"
+                    >
+                      <Edit2 size={20} />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(oferta.id)}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {descuentos.map((descuento) => (
-                  <tr key={descuento.id}>
-                    <td className="px-6 py-4">{descuento.codigo}</td>
-                    <td className="px-6 py-4">{descuento.tipo === 'porcentaje' ? 'Porcentaje' : 'Monto Fijo'}</td>
-                    <td className="px-6 py-4">{descuento.valor}{descuento.tipo === 'porcentaje' ? '%' : '$'}</td>
-                    <td className="px-6 py-4">{descuento.usoActual}/{descuento.usoMaximo}</td>
-                    <td className="px-6 py-4">{new Date(descuento.fechaInicio).toLocaleDateString()} - {new Date(descuento.fechaFin).toLocaleDateString()}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2 py-1 rounded-full text-xs ${descuento.activo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                        {descuento.activo ? 'Activo' : 'Inactivo'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <button
-                        onClick={() => {
-                          setDescuentoEdicion(descuento);
-                          setMostrarFormDescuento(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-800 mr-2"
-                      >
-                        <Edit2 size={18} />
-                      </button>
-                      <button
-                        onClick={() => setDescuentos(descuentos.filter(d => d.id !== descuento.id))}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
-
-        {/* Modal de Oferta */}
-        {mostrarFormOferta && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-xl font-bold mb-4">{ofertaEdicion ? 'Editar Oferta' : 'Nueva Oferta'}</h3>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                guardarOferta({
-                  id: ofertaEdicion?.id || 0,
-                  nombre: formData.get('nombre') as string,
-                  tipo: formData.get('tipo') as 'porcentaje' | 'monto_fijo',
-                  valor: Number(formData.get('valor')),
-                  fechaInicio: formData.get('fechaInicio') as string,
-                  fechaFin: formData.get('fechaFin') as string,
-                  activa: true,
-                  productos: []
-                });
-              }}>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Nombre</label>
-                    <input
-                      type="text"
-                      name="nombre"
-                      defaultValue={ofertaEdicion?.nombre}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Tipo</label>
-                    <select
-                      name="tipo"
-                      defaultValue={ofertaEdicion?.tipo}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
-                      required
-                    >
-                      <option value="porcentaje">Porcentaje</option>
-                      <option value="monto_fijo">Monto Fijo</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Valor</label>
-                    <input
-                      type="number"
-                      name="valor"
-                      defaultValue={ofertaEdicion?.valor}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Fecha Inicio</label>
-                    <input
-                      type="date"
-                      name="fechaInicio"
-                      defaultValue={ofertaEdicion?.fechaInicio}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Fecha Fin</label>
-                    <input
-                      type="date"
-                      name="fechaFin"
-                      defaultValue={ofertaEdicion?.fechaFin}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="mt-6 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMostrarFormOferta(false);
-                      setOfertaEdicion(null);
-                    }}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 text-sm font-medium text-white bg-pink-600 rounded-md hover:bg-pink-700"
-                  >
-                    {ofertaEdicion ? 'Guardar Cambios' : 'Crear Oferta'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Modal de Descuento */}
-        {mostrarFormDescuento && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <div className="bg-white rounded-lg p-6 w-full max-w-md">
-              <h3 className="text-xl font-bold mb-4">{descuentoEdicion ? 'Editar Descuento' : 'Nuevo Descuento'}</h3>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.currentTarget);
-                guardarDescuento({
-                  id: descuentoEdicion?.id || 0,
-                  codigo: formData.get('codigo') as string,
-                  tipo: formData.get('tipo') as 'porcentaje' | 'monto_fijo',
-                  valor: Number(formData.get('valor')),
-                  fechaInicio: formData.get('fechaInicio') as string,
-                  fechaFin: formData.get('fechaFin') as string,
-                  activo: true,
-                  usoMaximo: Number(formData.get('usoMaximo')),
-                  usoActual: descuentoEdicion?.usoActual || 0
-                });
-              }}>
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Código</label>
-                    <input
-                      type="text"
-                      name="codigo"
-                      defaultValue={descuentoEdicion?.codigo}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Tipo</label>
-                    <select
-                      name="tipo"
-                      defaultValue={descuentoEdicion?.tipo}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
-                      required
-                    >
-                      <option value="porcentaje">Porcentaje</option>
-                      <option value="monto_fijo">Monto Fijo</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Valor</label>
-                    <input
-                      type="number"
-                      name="valor"
-                      defaultValue={descuentoEdicion?.valor}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Uso Máximo</label>
-                    <input
-                      type="number"
-                      name="usoMaximo"
-                      defaultValue={descuentoEdicion?.usoMaximo}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Fecha Inicio</label>
-                    <input
-                      type="date"
-                      name="fechaInicio"
-                      defaultValue={descuentoEdicion?.fechaInicio}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Fecha Fin</label>
-                    <input
-                      type="date"
-                      name="fechaFin"
-                      defaultValue={descuentoEdicion?.fechaFin}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-pink-500 focus:ring-pink-500"
-                      required
-                    />
-                  </div>
-                </div>
-                <div className="mt-6 flex justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMostrarFormDescuento(false);
-                      setDescuentoEdicion(null);
-                    }}
-                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 text-sm font-medium text-white bg-pink-600 rounded-md hover:bg-pink-700"
-                  >
-                    {descuentoEdicion ? 'Guardar Cambios' : 'Crear Descuento'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

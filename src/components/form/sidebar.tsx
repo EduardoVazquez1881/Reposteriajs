@@ -27,14 +27,16 @@ function Sidebar({ children }: SidebarProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [carritoAbierto, setCarritoAbierto] = useState(false);
+  const router = useRouter();
   const { data: session, status } = useSession();
-  const { carrito, eliminarDelCarrito, actualizarCantidad, total, limpiarCarrito } = useCarrito();
+  const carritoContext = useCarrito();
   const userMenuRef = useRef<HTMLDivElement>(null);
+
+  // Usar las variables del contexto del carrito
+  const { carrito, eliminarDelCarrito, actualizarCantidad, total } = carritoContext;
 
   // Validar si es admin con la sesión
   const isAdmin = session?.user?.rol === 'admin' || session?.user?.role === 'admin';
-
-  const router = useRouter();
 
   type MenuItem = {
     icon?: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
@@ -57,6 +59,7 @@ function Sidebar({ children }: SidebarProps) {
       badge: carrito.reduce((total, item) => total + (item.cantidad || 1), 0)
     },
     { icon: UserPen, text: 'Personalizado', href: '/personalized' },
+    { icon: Gift, text: 'Ofertas y Descuentos', href: '/ofertas' },
     { icon: Phone, text: 'Contacto', href: '/contacto' },
     { icon: HelpCircle, text: 'Ayuda', href: '/ayuda', spacing: 'mt-auto' },
   ];
@@ -66,8 +69,8 @@ function Sidebar({ children }: SidebarProps) {
     { icon: Package, text: 'Inventario', href: '/inventario' },
     { icon: FileEdit, text: 'Gestión de Contenido', href: '/admin/gestion-contenido' },
     { icon: BarChart3, text: 'Estadísticas', href: '/admin/stats' },
-    { icon: Gift, text: 'Ofertas y Descuentos', href: '/admin/ofertas' },
     { icon: Star, text: 'Delicoins', href: '/admin/delicoins' },
+    { icon: Gift, text: 'Ofertas y Descuentos', href: '/admin/ofertas' },
   ];
 
   const menuItems = isAdmin 
